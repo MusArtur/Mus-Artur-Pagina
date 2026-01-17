@@ -36,11 +36,11 @@ import {
   KeyRound,
   Fingerprint,
   BellRing,
-  Smartphone
+  Smartphone,
+  ShieldAlert,
+  Clock
 } from 'lucide-react';
 import { AppData, Song, Social, UpcomingProject, Message } from './types';
-
-declare const emailjs: any;
 
 const DEFAULT_LOGO = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&h=200&auto=format&fit=crop";
 const DEFAULT_BANNER = "https://images.unsplash.com/photo-1514525253361-bee87184f47a?auto=format&fit=crop&q=80&w=1200";
@@ -87,17 +87,20 @@ const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Advanced Login Flow
-  const [loginStep, setLoginStep] = useState<1 | 2>(1);
+  const [loginStep, setLoginStep] = useState<1 | 2 | 3>(1); // 1: Creds, 2: Sending, 3: 2FA
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState(['', '', '', '', '', '']);
   const [generatedCode, setGeneratedCode] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+  const [codeTimer, setCodeTimer] = useState(60);
 
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [shareSong, setShareSong] = useState<Song | null>(null);
+
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     setIsSaving(true);
@@ -107,6 +110,14 @@ const App: React.FC = () => {
     }, 800);
     return () => clearTimeout(timeout);
   }, [data]);
+
+  useEffect(() => {
+    let interval: any;
+    if (loginStep === 3 && codeTimer > 0) {
+      interval = setInterval(() => setCodeTimer(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [loginStep, codeTimer]);
 
   const generateSecurityCode = () => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -120,24 +131,46 @@ const App: React.FC = () => {
       setLoginError('Correo electrónico inválido.');
       return;
     }
-    // Credenciales maestras
     if (loginForm.email === "vicrober0125@gmail.com" && loginForm.password === "vico0125") {
+      setLoginStep(2);
       setIsVerifying(true);
+      
+      // Simulate sending email process
       setTimeout(() => {
         const newCode = generateSecurityCode();
+        setLoginStep(3);
         setIsVerifying(false);
-        setLoginStep(2);
-        // Simular envío de notificación
-        setTimeout(() => setShowNotification(true), 1000);
-      }, 1500);
+        setCodeTimer(60);
+        setTwoFactorCode(['', '', '', '', '', '']);
+        setTimeout(() => setShowNotification(true), 800);
+      }, 3000);
     } else {
       setLoginError('Credenciales incorrectas.');
     }
   };
 
+  const handleDigitChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const newCode = [...twoFactorCode];
+    newCode[index] = value.slice(-1);
+    setTwoFactorCode(newCode);
+    setLoginError('');
+
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !twoFactorCode[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
   const handleVerify2FA = () => {
     setLoginError('');
-    if (twoFactorCode === generatedCode) {
+    const fullCode = twoFactorCode.join('');
+    if (fullCode === generatedCode) {
       setIsVerifying(true);
       setTimeout(() => {
         setIsLoggedIn(true);
@@ -145,18 +178,22 @@ const App: React.FC = () => {
         setShowNotification(false);
       }, 1200);
     } else {
-      setLoginError('Código de seguridad inválido. Revisa tu correo.');
+      setLoginError('Código inválido. Revisa la notificación de correo.');
     }
   };
 
   const resendCode = () => {
     setIsVerifying(true);
     setShowNotification(false);
+    setLoginStep(2);
     setTimeout(() => {
       generateSecurityCode();
+      setLoginStep(3);
       setIsVerifying(false);
+      setCodeTimer(60);
+      setTwoFactorCode(['', '', '', '', '', '']);
       setTimeout(() => setShowNotification(true), 500);
-    }, 1500);
+    }, 2500);
   };
 
   const handlePublish = async () => {
@@ -192,21 +229,21 @@ const App: React.FC = () => {
       <AnimatePresence>
         {showNotification && (
           <motion.div 
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 20, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            className="fixed top-0 left-1/2 -translate-x-1/2 z-[300] w-[90%] max-w-md bg-[#1e293b]/90 backdrop-blur-2xl border border-blue-500/30 p-6 rounded-[2.5rem] shadow-4xl flex items-center gap-6"
+            initial={{ y: -100, opacity: 0, scale: 0.9 }}
+            animate={{ y: 20, opacity: 1, scale: 1 }}
+            exit={{ y: -100, opacity: 0, scale: 0.9 }}
+            className="fixed top-0 left-1/2 -translate-x-1/2 z-[300] w-[95%] max-w-md bg-white/10 backdrop-blur-3xl border border-white/20 p-6 rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] flex items-center gap-6"
           >
-            <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-2xl">
+            <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-[0_10px_30px_rgba(37,99,235,0.4)]">
               <Mail size={24} />
             </div>
             <div className="flex-1">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Security Alert</span>
-                <span className="text-[8px] opacity-40 font-mono">Just Now</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Mus Artur Security</span>
+                <span className="text-[8px] opacity-40 font-mono">AHORA</span>
               </div>
-              <p className="text-xs font-bold text-white mb-1">Tu código Mus Artur: <span className="text-blue-400 text-sm tracking-widest">{generatedCode}</span></p>
-              <p className="text-[9px] opacity-40 font-medium">Enviado a {data.securityEmail}</p>
+              <p className="text-xs font-bold text-white mb-1">Código de Acceso: <span className="text-blue-400 text-sm tracking-widest font-orbitron">{generatedCode}</span></p>
+              <p className="text-[9px] opacity-40 font-medium truncate max-w-[150px]">Para la cuenta de {data.securityEmail}</p>
             </div>
             <button onClick={() => setShowNotification(false)} className="p-2 hover:bg-white/5 rounded-full transition-all"><X size={16}/></button>
           </motion.div>
@@ -220,7 +257,7 @@ const App: React.FC = () => {
         </motion.div>
         <h1 className="font-orbitron text-5xl md:text-[6.5rem] font-black blue-gradient-text tracking-tighter filter drop-shadow-2xl">Mus Artur</h1>
         <p className="mt-6 text-sm md:text-lg font-light italic text-blue-100/60 tracking-[0.5em] uppercase">Música que inspira · amor que transforma</p>
-        <button onClick={() => { setIsAdminOpen(true); setLoginStep(1); setTwoFactorCode(''); setGeneratedCode(''); }} className="mt-12 px-12 py-5 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full text-[10px] font-black uppercase tracking-[0.6em] flex items-center gap-4 mx-auto shadow-4xl hover:border-blue-500/50 transition-all group">
+        <button onClick={() => { setIsAdminOpen(true); setLoginStep(1); setTwoFactorCode(['', '', '', '', '', '']); setGeneratedCode(''); }} className="mt-12 px-12 py-5 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full text-[10px] font-black uppercase tracking-[0.6em] flex items-center gap-4 mx-auto shadow-4xl hover:border-blue-500/50 transition-all group">
           <Settings size={18} className="text-blue-500 group-hover:rotate-180 transition-transform duration-1000" />
           Terminal Admin
         </button>
@@ -284,7 +321,7 @@ const App: React.FC = () => {
         <p className="text-[11px] font-black tracking-[0.5em] uppercase">© 2026 MUSARTUR.COM - ACCESO RESTRINGIDO</p>
       </footer>
 
-      {/* Admin Panel */}
+      {/* Admin Panel Overlay */}
       <AnimatePresence>
         {isAdminOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-[#020412]/99 backdrop-blur-3xl overflow-y-auto">
@@ -292,55 +329,104 @@ const App: React.FC = () => {
               <div className="flex items-center gap-8">
                 <div className="p-4 bg-blue-600/20 rounded-2xl"><Settings size={28} className="text-blue-500" /></div>
                 <div>
-                  <h2 className="text-2xl font-orbitron font-black text-white tracking-widest uppercase">Seguridad Administrativa</h2>
-                  <div className="flex items-center gap-3 mt-1">
+                  <h2 className="text-2xl font-orbitron font-black text-white tracking-widest uppercase leading-none">Terminal Admin</h2>
+                  <div className="flex items-center gap-3 mt-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
-                    <span className="text-[9px] uppercase font-black tracking-widest opacity-60">Protección de Datos Activa</span>
+                    <span className="text-[9px] uppercase font-black tracking-widest opacity-60">Sincronización Segura</span>
                   </div>
                 </div>
               </div>
-              <button onClick={() => { setIsAdminOpen(false); setShowNotification(false); }} className="p-4 bg-white/5 rounded-full hover:bg-red-500/20 border border-white/10 transition-all"><X size={24} /></button>
+              <button onClick={() => { setIsAdminOpen(false); setShowNotification(false); setLoginStep(1); }} className="p-4 bg-white/5 rounded-full hover:bg-red-500/20 border border-white/10 transition-all"><X size={24} /></button>
             </div>
 
             <div className="max-w-7xl mx-auto p-10 md:p-24 pb-48">
               {!isLoggedIn ? (
-                <div className="max-w-md mx-auto py-12 text-center space-y-16">
-                   <motion.div animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 6 }} className="w-28 h-28 bg-blue-600/10 rounded-[3rem] flex items-center justify-center mx-auto border border-blue-500/20 shadow-4xl">
-                    {loginStep === 1 ? <Lock size={48} className="text-blue-500" /> : <Smartphone size={48} className="text-amber-500" />}
-                  </motion.div>
+                <div className="max-w-xl mx-auto py-12 text-center space-y-16">
                   
                   <AnimatePresence mode="wait">
-                    {loginStep === 1 ? (
-                      <motion.div key="s1" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-10">
+                    {loginStep === 1 && (
+                      <motion.div key="s1" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} className="space-y-12">
+                         <motion.div animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 6 }} className="w-28 h-28 bg-blue-600/10 rounded-[3rem] flex items-center justify-center mx-auto border border-blue-500/20 shadow-4xl">
+                            <Lock size={48} className="text-blue-500" />
+                         </motion.div>
                          <div className="space-y-4">
-                            <h3 className="text-3xl font-orbitron font-black uppercase tracking-widest">Identificación</h3>
-                            <p className="text-[10px] uppercase font-black opacity-30 tracking-[0.3em]">Acceso Maestro Nivel 5</p>
+                            <h3 className="text-3xl font-orbitron font-black uppercase tracking-widest leading-none">Identificación</h3>
+                            <p className="text-[10px] uppercase font-black opacity-30 tracking-[0.3em]">Acceso Maestro Requerido</p>
                          </div>
-                         <div className="space-y-5">
-                            <input type="email" placeholder="Usuario Raíz" value={loginForm.email} onChange={e => {setLoginForm(p => ({...p, email: e.target.value})); setLoginError('');}} className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-10 py-6 outline-none focus:border-blue-500 transition-all text-sm" />
-                            <input type="password" placeholder="Clave Maestra" value={loginForm.password} onChange={e => {setLoginForm(p => ({...p, password: e.target.value})); setLoginError('');}} className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-10 py-6 outline-none focus:border-blue-500 transition-all text-sm" />
-                            {loginError && <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">{loginError}</p>}
-                            <button onClick={handleLogin} disabled={isVerifying} className="w-full bg-blue-600 py-7 rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-4xl flex items-center justify-center gap-4 hover:bg-blue-500 transition-all">
-                              {isVerifying ? <Loader2 className="animate-spin" size={18}/> : <Fingerprint size={18}/>} Iniciar Fase de Validación
+                         <div className="space-y-5 text-left max-w-md mx-auto">
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-black uppercase tracking-[0.2em] opacity-30 ml-4">Usuario</label>
+                              <input type="email" placeholder="admin@musartur.com" value={loginForm.email} onChange={e => {setLoginForm(p => ({...p, email: e.target.value})); setLoginError('');}} className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-10 py-6 outline-none focus:border-blue-500 transition-all text-sm font-medium" />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-black uppercase tracking-[0.2em] opacity-30 ml-4">Contraseña</label>
+                              <input type="password" placeholder="••••••••" value={loginForm.password} onChange={e => {setLoginForm(p => ({...p, password: e.target.value})); setLoginError('');}} className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-10 py-6 outline-none focus:border-blue-500 transition-all text-sm font-medium" />
+                            </div>
+                            {loginError && <p className="text-red-500 text-[10px] font-black uppercase tracking-widest text-center mt-4 bg-red-500/10 py-4 rounded-2xl">{loginError}</p>}
+                            <button onClick={handleLogin} className="w-full bg-blue-600 py-7 rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-[0_20px_50px_rgba(37,99,235,0.3)] flex items-center justify-center gap-4 hover:bg-blue-500 transition-all mt-8 group">
+                              <Fingerprint size={18} className="group-hover:scale-110 transition-transform"/> Iniciar Validación
                             </button>
                          </div>
                       </motion.div>
-                    ) : (
-                      <motion.div key="s2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-10">
+                    )}
+
+                    {loginStep === 2 && (
+                      <motion.div key="s2" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="py-20 flex flex-col items-center justify-center space-y-12">
+                         <div className="relative">
+                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} className="w-40 h-40 rounded-full border-t-4 border-l-4 border-blue-500 border-r-4 border-r-transparent border-b-4 border-b-transparent" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                               <ShieldCheck size={60} className="text-blue-500 animate-pulse" />
+                            </div>
+                         </div>
+                         <div className="space-y-4">
+                            <h3 className="text-2xl font-orbitron font-black uppercase tracking-widest text-blue-100">Generando Código de Acceso</h3>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-40">Enviando cifrado a {data.securityEmail}...</p>
+                         </div>
+                         <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden">
+                            <motion.div initial={{ x: '-100%' }} animate={{ x: '100%' }} transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }} className="w-1/2 h-full bg-blue-500" />
+                         </div>
+                      </motion.div>
+                    )}
+
+                    {loginStep === 3 && (
+                      <motion.div key="s3" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} className="space-y-12">
+                        <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 3, repeat: Infinity }} className="w-28 h-28 bg-amber-500/10 rounded-[3rem] flex items-center justify-center mx-auto border border-amber-500/20 shadow-[0_0_60px_rgba(245,158,11,0.2)]">
+                           <Smartphone size={48} className="text-amber-500" />
+                        </motion.div>
                         <div className="space-y-4">
-                           <h3 className="text-3xl font-orbitron font-black uppercase tracking-widest text-amber-500">2-Factor Auth</h3>
-                           <p className="text-[10px] uppercase font-black opacity-40 tracking-[0.2em]">Código dinámico enviado a: {data.securityEmail}</p>
+                           <h3 className="text-3xl font-orbitron font-black uppercase tracking-widest text-amber-500 leading-none">Verificación 2FA</h3>
+                           <p className="text-[10px] uppercase font-black opacity-40 tracking-[0.2em] leading-relaxed">Código dinámico enviado a:<br/> <span className="text-amber-200/60">{data.securityEmail}</span></p>
                         </div>
-                        <div className="space-y-8">
-                           <input type="text" maxLength={6} placeholder="000000" value={twoFactorCode} onChange={e => {setTwoFactorCode(e.target.value); setLoginError('');}} className="w-full bg-white/5 border border-amber-500/30 rounded-[2.5rem] py-10 text-center text-5xl font-orbitron font-bold tracking-[0.6em] outline-none text-amber-500 focus:border-amber-500" />
-                           {loginError && <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">{loginError}</p>}
-                           <div className="flex gap-4">
-                              <button onClick={() => { setLoginStep(1); setShowNotification(false); }} className="px-8 py-7 bg-white/5 border border-white/10 rounded-[2rem] text-[10px] font-black uppercase tracking-widest">Atrás</button>
-                              <button onClick={handleVerify2FA} disabled={isVerifying} className="flex-1 bg-amber-500 text-black py-7 rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-4xl flex items-center justify-center gap-4">
-                                {isVerifying ? <Loader2 className="animate-spin" size={18}/> : <ShieldCheck size={18}/>} Validar e Ingresar
+                        <div className="space-y-10 max-w-lg mx-auto">
+                           <div className="flex justify-between gap-4">
+                              {twoFactorCode.map((digit, i) => (
+                                <input
+                                  key={i}
+                                  ref={el => { inputRefs.current[i] = el; }}
+                                  type="text"
+                                  maxLength={1}
+                                  value={digit}
+                                  onChange={e => handleDigitChange(i, e.target.value)}
+                                  onKeyDown={e => handleKeyDown(i, e)}
+                                  className="w-full aspect-square bg-white/5 border-2 border-white/10 rounded-3xl text-center text-4xl font-orbitron font-bold text-amber-500 focus:border-amber-500 outline-none transition-all shadow-xl"
+                                />
+                              ))}
+                           </div>
+                           
+                           <div className="flex items-center justify-center gap-3 text-amber-500/40 font-black text-[10px] uppercase tracking-widest">
+                              <Clock size={14} />
+                              <span>El código caduca en {codeTimer} segundos</span>
+                           </div>
+
+                           {loginError && <p className="text-red-500 text-[10px] font-black uppercase tracking-widest bg-red-500/10 py-4 rounded-2xl">{loginError}</p>}
+                           
+                           <div className="flex flex-col sm:flex-row gap-4">
+                              <button onClick={() => { setLoginStep(1); setShowNotification(false); }} className="px-10 py-7 bg-white/5 border border-white/10 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancelar</button>
+                              <button onClick={handleVerify2FA} disabled={isVerifying} className="flex-1 bg-amber-500 text-black py-7 rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-[0_20px_50px_rgba(245,158,11,0.3)] flex items-center justify-center gap-4 hover:bg-amber-400 transition-all">
+                                {isVerifying ? <Loader2 className="animate-spin" size={18}/> : <ShieldCheck size={18}/>} Validar Acceso
                               </button>
                            </div>
-                           <button onClick={resendCode} className="text-[9px] uppercase font-black tracking-widest opacity-30 hover:opacity-100 transition-opacity">¿No recibiste el código? Reenviar ahora</button>
+                           <button onClick={resendCode} className="text-[10px] uppercase font-black tracking-widest opacity-20 hover:opacity-100 transition-opacity hover:text-amber-500">¿Problemas con el correo? Reenviar código</button>
                         </div>
                       </motion.div>
                     )}
@@ -349,18 +435,18 @@ const App: React.FC = () => {
               ) : (
                 <div className="space-y-20">
                   <div className="grid md:grid-cols-2 gap-10">
-                     <div className="bg-blue-600/10 border border-blue-500/20 rounded-[4rem] p-10 flex items-center gap-8">
-                        <div className="w-20 h-20 bg-blue-600/20 rounded-3xl flex items-center justify-center text-blue-400 shadow-2xl"><Globe size={40} /></div>
+                     <div className="bg-blue-600/10 border border-blue-500/20 rounded-[4rem] p-10 flex items-center gap-8 shadow-2xl">
+                        <div className="w-20 h-20 bg-blue-600/20 rounded-3xl flex items-center justify-center text-blue-400 shadow-xl"><Globe size={40} /></div>
                         <div>
-                          <h4 className="text-xl font-orbitron font-black uppercase tracking-widest">musartur.com</h4>
-                          <div className="flex items-center gap-3 mt-1"><CheckCircle size={14} className="text-green-500"/> <span className="text-[10px] font-black opacity-60">DNS OPERATIVO</span></div>
+                          <h4 className="text-xl font-orbitron font-black uppercase tracking-widest leading-none">musartur.com</h4>
+                          <div className="flex items-center gap-3 mt-3"><CheckCircle size={14} className="text-green-500"/> <span className="text-[10px] font-black opacity-60">DOMINIO ACTIVADO</span></div>
                         </div>
                      </div>
-                     <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-[4rem] p-10 flex items-center gap-8">
-                        <div className="w-20 h-20 bg-indigo-600/20 rounded-3xl flex items-center justify-center text-indigo-400 shadow-2xl"><ShieldCheck size={40} /></div>
+                     <div className="bg-amber-600/10 border border-amber-500/20 rounded-[4rem] p-10 flex items-center gap-8 shadow-2xl">
+                        <div className="w-20 h-20 bg-amber-600/20 rounded-3xl flex items-center justify-center text-amber-400 shadow-xl"><ShieldAlert size={40} /></div>
                         <div>
-                          <h4 className="text-xl font-orbitron font-black uppercase tracking-widest">Nivel de Seguridad</h4>
-                          <div className="flex items-center gap-3 mt-1"><BellRing size={14} className="text-amber-500"/> <span className="text-[10px] font-black opacity-60">2FA DYNAMICS ACTIVE</span></div>
+                          <h4 className="text-xl font-orbitron font-black uppercase tracking-widest leading-none">Seguridad 2FA</h4>
+                          <div className="flex items-center gap-3 mt-3"><BellRing size={14} className="text-amber-500"/> <span className="text-[10px] font-black opacity-60 uppercase">DYNAMICS ACTIVE</span></div>
                         </div>
                      </div>
                   </div>
@@ -443,16 +529,16 @@ const SocialIcon: React.FC<{ type: Social['name']; url: string; size?: 'sm' | 'm
 const ContactForm: React.FC<{ adminEmail: string; onMessageSent: (m: Message) => void }> = ({ onMessageSent }) => {
   const [f, setF] = useState({ name: '', email: '', msg: '' });
   const [l, setL] = useState(false);
-  const send = () => { if(!f.name || !f.email || !f.msg) return; setL(true); setTimeout(() => { onMessageSent({ id: Date.now().toString(), name: f.name, email: f.email, message: f.msg, date: new Date().toLocaleString() }); setF({ name: '', email: '', msg: '' }); setL(false); alert("¡Cifrado y enviado!"); }, 2000); };
+  const send = () => { if(!f.name || !f.email || !f.msg) return; setL(true); setTimeout(() => { onMessageSent({ id: Date.now().toString(), name: f.name, email: f.email, message: f.msg, date: new Date().toLocaleString() }); setF({ name: '', email: '', msg: '' }); setL(false); alert("¡Mensaje enviado con éxito!"); }, 2000); };
   return (
     <div className="space-y-12">
       <div className="grid md:grid-cols-2 gap-10">
-        <input placeholder="Firma" value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[2.5rem] px-12 py-7 outline-none focus:border-blue-500 transition-all text-sm"/>
-        <input placeholder="Email Retorno" value={f.email} onChange={e => setF({...f, email: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[2.5rem] px-12 py-7 outline-none focus:border-blue-500 transition-all text-sm"/>
+        <input placeholder="Tu Nombre" value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[2.5rem] px-12 py-7 outline-none focus:border-blue-500 transition-all text-sm"/>
+        <input placeholder="Tu Email" value={f.email} onChange={e => setF({...f, email: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[2.5rem] px-12 py-7 outline-none focus:border-blue-500 transition-all text-sm"/>
       </div>
-      <textarea placeholder="Frecuencia de mensaje..." rows={6} value={f.msg} onChange={e => setF({...f, msg: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[3.5rem] px-12 py-10 outline-none focus:border-blue-500 transition-all text-sm resize-none"/>
+      <textarea placeholder="Cuéntanos..." rows={6} value={f.msg} onChange={e => setF({...f, msg: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[3.5rem] px-12 py-10 outline-none focus:border-blue-500 transition-all text-sm resize-none"/>
       <button onClick={send} disabled={l} className="w-full bg-blue-600 py-8 rounded-full font-black uppercase tracking-[0.8em] text-[12px] shadow-4xl hover:bg-blue-500 transition-all flex items-center justify-center gap-4">
-        {l ? <Loader2 className="animate-spin" size={20}/> : <Send size={20}/>} Transmitir Mensaje
+        {l ? <Loader2 className="animate-spin" size={20}/> : <Send size={20}/>} Enviar Mensaje
       </button>
     </div>
   );
@@ -460,25 +546,50 @@ const ContactForm: React.FC<{ adminEmail: string; onMessageSent: (m: Message) =>
 
 const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>>; onLogout: () => void; onPublish: () => void }> = ({ data, setData, onLogout, onPublish }) => {
   const [newS, setNewS] = useState({ title: '', videoUrl: '' });
+  const [newU, setNewU] = useState({ title: '', youtubeTrailer: '' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+  
   const logoRef = useRef<HTMLInputElement>(null);
   const bannerRef = useRef<HTMLInputElement>(null);
   const update = (f: string, v: any) => setData(p => ({...p, [f]: v}));
+  
   const addS = () => { if(!newS.title) return; setData(p => ({...p, songs: [{id: Date.now().toString(), ...newS}, ...p.songs]})); setNewS({title:'', videoUrl:''}); };
-  const del = (t: any, id: string) => setData(p => ({...p, [t]: (p[t] as any[]).filter(i => i.id !== id)}));
+  const addU = () => { if(!newU.title) return; setData(p => ({...p, upcoming: [{id: Date.now().toString(), ...newU}, ...p.upcoming]})); setNewU({title:'', youtubeTrailer:''}); };
+  
+  const del = (t: 'songs' | 'upcoming' | 'messages', id: string) => {
+    if(confirm("¿Estás seguro de que deseas eliminar este elemento?")) {
+      setData(p => ({...p, [t]: (p[t] as any[]).filter(i => i.id !== id)}));
+    }
+  };
+
+  const startEdit = (item: any) => {
+    setEditingId(item.id);
+    setEditForm(item);
+  };
+
+  const saveEdit = (type: 'songs' | 'upcoming') => {
+    setData(p => ({
+      ...p,
+      [type]: (p[type] as any[]).map(i => i.id === editingId ? editForm : i)
+    }));
+    setEditingId(null);
+  };
+
   const handleFile = (e: any, f: string) => { const file = e.target.files?.[0]; if(file) { const r = new FileReader(); r.onload = () => update(f, r.result); r.readAsDataURL(file); } };
 
   return (
     <div className="grid xl:grid-cols-2 gap-20">
       <div className="space-y-20">
-        <AdminCard title="Seguridad de la Cuenta" icon={<Lock />}>
+        <AdminCard title="Capa de Seguridad" icon={<Lock />}>
            <div className="space-y-8">
               <div className="space-y-2">
-                <label className="text-[10px] uppercase font-black opacity-30 tracking-widest ml-4">Email Maestro (Notificaciones 2FA)</label>
+                <label className="text-[10px] uppercase font-black opacity-30 tracking-widest ml-4">Email Maestro para 2FA</label>
                 <input value={data.securityEmail} onChange={e => update('securityEmail', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-2xl px-8 py-5 outline-none focus:border-amber-500 text-amber-500 font-bold" />
               </div>
-              <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex items-center gap-6">
-                 <ShieldCheck className="text-amber-500" size={32}/>
-                 <p className="text-[10px] text-amber-200/50 leading-relaxed font-bold uppercase tracking-widest">El sistema enviará el código de verificación dinámico a este email en cada inicio de sesión administrativo.</p>
+              <div className="p-8 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex items-center gap-6">
+                 <ShieldCheck className="text-amber-500 shrink-0" size={32}/>
+                 <p className="text-[10px] text-amber-200/50 leading-relaxed font-bold uppercase tracking-widest">Este es el correo donde recibirás los códigos dinámicos de acceso administrativo.</p>
               </div>
            </div>
         </AdminCard>
@@ -487,21 +598,21 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
            <div className="space-y-10">
               <div className="flex items-center gap-10">
                  <img src={data.headerLogo} className="w-24 h-24 rounded-full border-2 border-blue-500/30 object-cover shadow-4xl" alt="P" />
-                 <button onClick={() => logoRef.current?.click()} className="flex-1 p-5 bg-blue-600/10 border border-blue-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest"><Upload size={16} className="inline mr-3"/> Cambiar Logo</button>
+                 <button onClick={() => logoRef.current?.click()} className="flex-1 p-5 bg-blue-600/10 border border-blue-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600/20 transition-all"><Upload size={16} className="inline mr-3"/> Cambiar Avatar</button>
                  <input type="file" ref={logoRef} hidden onChange={e => handleFile(e, 'headerLogo')} />
               </div>
               <div className="space-y-4">
                  <div className="w-full aspect-[3/1] rounded-3xl border-2 border-blue-500/20 overflow-hidden shadow-4xl bg-black">
                     <img src={data.artistCover} className="w-full h-full object-cover" alt="B" />
                  </div>
-                 <button onClick={() => bannerRef.current?.click()} className="w-full p-5 bg-blue-600/10 border border-blue-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest"><Upload size={16} className="inline mr-3"/> Cambiar Banner</button>
+                 <button onClick={() => bannerRef.current?.click()} className="w-full p-5 bg-blue-600/10 border border-blue-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600/20 transition-all"><Upload size={16} className="inline mr-3"/> Cambiar Banner</button>
                  <input type="file" ref={bannerRef} hidden onChange={e => handleFile(e, 'artistCover')} />
               </div>
            </div>
         </AdminCard>
         
         <AdminCard title="Biografía Oficial" icon={<Sparkles />}>
-           <textarea value={data.about} onChange={e => update('about', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-3xl p-8 min-h-[300px] outline-none focus:border-blue-500 text-sm"/>
+           <textarea value={data.about} onChange={e => update('about', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-3xl p-8 min-h-[300px] outline-none focus:border-blue-500 text-sm leading-relaxed"/>
         </AdminCard>
       </div>
 
@@ -511,12 +622,60 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
               <div className="bg-blue-600/5 p-8 rounded-[3rem] border border-blue-500/10 space-y-4">
                  <input placeholder="Título del Track" value={newS.title} onChange={e => setNewS({...newS, title: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
                  <input placeholder="URL YouTube Oficial" value={newS.videoUrl} onChange={e => setNewS({...newS, videoUrl: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
-                 <button onClick={addS} className="w-full bg-blue-600 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest">Añadir a Catálogo</button>
+                 <button onClick={addS} className="w-full bg-blue-600 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 transition-all">Añadir Track</button>
               </div>
               {data.songs.map(s => (
-                <div key={s.id} className="bg-white/[0.03] p-6 rounded-3xl border border-white/5 flex items-center justify-between">
-                   <span className="text-xs font-bold">{s.title}</span>
-                   <button onClick={() => del('songs', s.id)} className="p-3 text-red-500/40 hover:text-red-500 transition-all"><Trash2 size={18}/></button>
+                <div key={s.id} className="bg-white/[0.03] p-6 rounded-3xl border border-white/5 flex items-center justify-between group">
+                   {editingId === s.id ? (
+                     <div className="flex-1 space-y-3 mr-4">
+                        <input className="w-full bg-black/40 border border-blue-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} />
+                        <input className="w-full bg-black/40 border border-blue-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.videoUrl} onChange={e => setEditForm({...editForm, videoUrl: e.target.value})} />
+                        <div className="flex gap-2">
+                           <button onClick={() => saveEdit('songs')} className="flex-1 bg-green-600/20 text-green-500 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest"><Save size={12} className="inline mr-1"/> Guardar</button>
+                           <button onClick={() => setEditingId(null)} className="flex-1 bg-white/5 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest">Cancelar</button>
+                        </div>
+                     </div>
+                   ) : (
+                     <>
+                       <span className="text-xs font-bold text-blue-100">{s.title}</span>
+                       <div className="flex gap-2">
+                          <button onClick={() => startEdit(s)} className="p-3 text-blue-400/40 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl transition-all"><Edit3 size={18}/></button>
+                          <button onClick={() => del('songs', s.id)} className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={18}/></button>
+                       </div>
+                     </>
+                   )}
+                </div>
+              ))}
+           </div>
+        </AdminCard>
+
+        <AdminCard title="Próximos Lanzamientos" icon={<Calendar />}>
+           <div className="space-y-8 max-h-[700px] overflow-y-auto pr-4 custom-scrollbar">
+              <div className="bg-amber-600/5 p-8 rounded-[3rem] border border-amber-500/10 space-y-4">
+                 <input placeholder="Título del Lanzamiento" value={newU.title} onChange={e => setNewU({...newU, title: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
+                 <input placeholder="Trailer URL (YouTube)" value={newU.youtubeTrailer} onChange={e => setNewU({...newU, youtubeTrailer: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
+                 <button onClick={addU} className="w-full bg-amber-600 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-500 transition-all text-black">Programar Lanzamiento</button>
+              </div>
+              {data.upcoming.map(u => (
+                <div key={u.id} className="bg-white/[0.03] p-6 rounded-3xl border border-white/5 flex items-center justify-between">
+                   {editingId === u.id ? (
+                     <div className="flex-1 space-y-3 mr-4">
+                        <input className="w-full bg-black/40 border border-amber-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} />
+                        <input className="w-full bg-black/40 border border-amber-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.youtubeTrailer} onChange={e => setEditForm({...editForm, youtubeTrailer: e.target.value})} />
+                        <div className="flex gap-2">
+                           <button onClick={() => saveEdit('upcoming')} className="flex-1 bg-green-600/20 text-green-500 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest"><Save size={12} className="inline mr-1"/> Guardar</button>
+                           <button onClick={() => setEditingId(null)} className="flex-1 bg-white/5 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest">Cancelar</button>
+                        </div>
+                     </div>
+                   ) : (
+                     <>
+                       <span className="text-xs font-bold text-amber-100">{u.title}</span>
+                       <div className="flex gap-2">
+                          <button onClick={() => startEdit(u)} className="p-3 text-amber-400/40 hover:text-amber-400 hover:bg-amber-400/10 rounded-xl transition-all"><Edit3 size={18}/></button>
+                          <button onClick={() => del('upcoming', u.id)} className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={18}/></button>
+                       </div>
+                     </>
+                   )}
                 </div>
               ))}
            </div>
@@ -524,7 +683,7 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
 
         <AdminCard title="Buzón Maestro" icon={<Mail />}>
            <div className="space-y-6 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
-              {data.messages.length === 0 ? <p className="text-center opacity-20 py-10 uppercase font-black text-[10px] tracking-widest italic">Terminal Limpia</p> : data.messages.map(m => (
+              {data.messages.length === 0 ? <p className="text-center opacity-20 py-10 uppercase font-black text-[10px] tracking-widest italic">Sin Mensajes</p> : data.messages.map(m => (
                 <div key={m.id} className="bg-black/60 p-8 rounded-3xl border border-white/5 relative group">
                    <button onClick={() => del('messages', m.id)} className="absolute top-6 right-6 p-2 text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button>
                    <div className="mb-4">
@@ -539,7 +698,7 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
         </AdminCard>
 
         <div className="grid grid-cols-2 gap-6">
-           <button onClick={onPublish} className="bg-blue-600 py-8 rounded-[2.5rem] font-black uppercase text-[11px] tracking-[0.4em] shadow-4xl hover:bg-blue-500 transition-all">Publicar Todo</button>
+           <button onClick={onPublish} className="bg-blue-600 py-8 rounded-[2.5rem] font-black uppercase text-[11px] tracking-[0.4em] shadow-4xl hover:bg-blue-500 transition-all">Publicar Cambios</button>
            <button onClick={onLogout} className="bg-red-950/20 text-red-500 border border-red-900/30 py-8 rounded-[2.5rem] font-black uppercase text-[11px] tracking-[0.4em] hover:bg-red-600 hover:text-white transition-all">Cerrar Sesión</button>
         </div>
       </div>
@@ -549,7 +708,7 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
 
 const AdminCard: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
   <div className="bg-white/[0.02] p-10 md:p-14 rounded-[5rem] border border-white/5 shadow-4xl space-y-12 relative overflow-hidden group">
-    <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover:opacity-[0.08] transition-all transform scale-150 rotate-12">
+    <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover:opacity-[0.1] transition-all transform scale-150 rotate-12">
       {React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<any>, { size: 120 })}
     </div>
     <div className="flex items-center gap-6 text-blue-500 uppercase font-black tracking-[0.4em] text-[13px] relative z-10">
