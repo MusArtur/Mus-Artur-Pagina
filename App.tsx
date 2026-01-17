@@ -31,7 +31,12 @@ import {
   Upload,
   Globe,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  KeyRound,
+  Fingerprint,
+  BellRing,
+  Smartphone
 } from 'lucide-react';
 import { AppData, Song, Social, UpcomingProject, Message } from './types';
 
@@ -40,7 +45,6 @@ declare const emailjs: any;
 const DEFAULT_LOGO = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&h=200&auto=format&fit=crop";
 const DEFAULT_BANNER = "https://images.unsplash.com/photo-1514525253361-bee87184f47a?auto=format&fit=crop&q=80&w=1200";
 
-// Helper for Email Validation
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const getYTid = (url: string | undefined): string | null => {
@@ -51,21 +55,19 @@ const getYTid = (url: string | undefined): string | null => {
 };
 
 const App: React.FC = () => {
-  // Persistence: Initialize from localStorage to survive refreshes
   const [data, setData] = useState<AppData>(() => {
     try {
       const saved = localStorage.getItem('musArturData');
-      if (saved) {
-        return JSON.parse(saved);
-      }
+      if (saved) return JSON.parse(saved);
     } catch (e) {
-      console.error("Error al cargar datos persistentes:", e);
+      console.error("Error al cargar datos:", e);
     }
     return {
       about: "Mus Artur es un proyecto musical enfocado en transmitir mensajes de fe, esperanza y amor a través de canciones originales.",
       headerLogo: DEFAULT_LOGO,
       artistCover: DEFAULT_BANNER,
       contactEmail: "vicrober0125@gmail.com",
+      securityEmail: "vicrober0125@gmail.com",
       songs: [],
       socials: [
         { id: '1', name: 'Instagram', url: 'https://instagram.com/musartur' },
@@ -83,13 +85,20 @@ const App: React.FC = () => {
 
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // Advanced Login Flow
+  const [loginStep, setLoginStep] = useState<1 | 2>(1);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [shareSong, setShareSong] = useState<Song | null>(null);
 
-  // Persistence: Auto-save effect triggered on every 'data' change
   useEffect(() => {
     setIsSaving(true);
     const timeout = setTimeout(() => {
@@ -99,17 +108,55 @@ const App: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [data]);
 
+  const generateSecurityCode = () => {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedCode(code);
+    return code;
+  };
+
   const handleLogin = () => {
     setLoginError('');
     if (!isValidEmail(loginForm.email)) {
-      setLoginError('Por favor ingresa un correo electrónico válido.');
+      setLoginError('Correo electrónico inválido.');
       return;
     }
+    // Credenciales maestras
     if (loginForm.email === "vicrober0125@gmail.com" && loginForm.password === "vico0125") {
-      setIsLoggedIn(true);
+      setIsVerifying(true);
+      setTimeout(() => {
+        const newCode = generateSecurityCode();
+        setIsVerifying(false);
+        setLoginStep(2);
+        // Simular envío de notificación
+        setTimeout(() => setShowNotification(true), 1000);
+      }, 1500);
     } else {
-      setLoginError('Acceso denegado. Credenciales inválidas.');
+      setLoginError('Credenciales incorrectas.');
     }
+  };
+
+  const handleVerify2FA = () => {
+    setLoginError('');
+    if (twoFactorCode === generatedCode) {
+      setIsVerifying(true);
+      setTimeout(() => {
+        setIsLoggedIn(true);
+        setIsVerifying(false);
+        setShowNotification(false);
+      }, 1200);
+    } else {
+      setLoginError('Código de seguridad inválido. Revisa tu correo.');
+    }
+  };
+
+  const resendCode = () => {
+    setIsVerifying(true);
+    setShowNotification(false);
+    setTimeout(() => {
+      generateSecurityCode();
+      setIsVerifying(false);
+      setTimeout(() => setShowNotification(true), 500);
+    }, 1500);
   };
 
   const handlePublish = async () => {
@@ -119,343 +166,232 @@ const App: React.FC = () => {
     setIsAdminOpen(false);
     
     const toast = document.createElement('div');
-    toast.className = 'fixed top-10 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-10 py-5 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-[0_20px_60px_rgba(37,99,235,0.4)] z-[200] border border-white/20 flex items-center gap-3 backdrop-blur-xl';
-    toast.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> SITIO WEB PUBLICADO EN MUSARTUR.COM`;
+    toast.className = 'fixed top-10 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-10 py-5 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-4xl z-[200] border border-white/20 flex items-center gap-3 backdrop-blur-xl';
+    toast.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> MUSARTUR.COM PUBLICADO EXITOSAMENTE`;
     document.body.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
-      toast.style.transform = 'translate(-50%, -20px)';
-      toast.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+      toast.style.transition = 'opacity 0.5s';
       setTimeout(() => toast.remove(), 500);
     }, 4000);
   };
 
   return (
     <div className="min-h-screen bg-[#020412] text-[#f1f5f9] selection:bg-blue-600/40 relative overflow-x-hidden">
-      {/* Dynamic Background */}
+      {/* Background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <motion.div 
-          animate={{ scale: [1, 1.15, 1], opacity: [0.1, 0.25, 0.1] }}
-          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-[15%] -left-[15%] w-[130%] h-[130%] bg-blue-900/10 blur-[200px] rounded-full"
-        />
-        {[...Array(30)].map((_, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, x: Math.random() * 100 + "%", y: Math.random() * 100 + "%" }}
-            animate={{ opacity: [0, 0.4, 0], scale: [0, 1.2, 0] }}
-            transition={{ duration: 6 + Math.random() * 8, repeat: Infinity, delay: Math.random() * 10 }}
-            className="absolute text-blue-400/10"
-          >
-            <Star size={Math.random() * 6 + 2} fill="currentColor" />
+        <motion.div animate={{ scale: [1, 1.15, 1], opacity: [0.1, 0.25, 0.1] }} transition={{ duration: 18, repeat: Infinity }} className="absolute -top-[15%] -left-[15%] w-[130%] h-[130%] bg-blue-900/10 blur-[200px] rounded-full" />
+        {[...Array(20)].map((_, i) => (
+          <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: [0, 0.3, 0] }} transition={{ duration: 5 + Math.random() * 5, repeat: Infinity, delay: Math.random() * 5 }} className="absolute text-blue-500/20" style={{ left: Math.random() * 100 + '%', top: Math.random() * 100 + '%' }}>
+            <Star size={Math.random() * 4 + 2} fill="currentColor" />
           </motion.div>
         ))}
       </div>
 
-      {/* Header Section */}
+      {/* Mock Email Notification Simulation */}
+      <AnimatePresence>
+        {showNotification && (
+          <motion.div 
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 20, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-0 left-1/2 -translate-x-1/2 z-[300] w-[90%] max-w-md bg-[#1e293b]/90 backdrop-blur-2xl border border-blue-500/30 p-6 rounded-[2.5rem] shadow-4xl flex items-center gap-6"
+          >
+            <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-2xl">
+              <Mail size={24} />
+            </div>
+            <div className="flex-1">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Security Alert</span>
+                <span className="text-[8px] opacity-40 font-mono">Just Now</span>
+              </div>
+              <p className="text-xs font-bold text-white mb-1">Tu código Mus Artur: <span className="text-blue-400 text-sm tracking-widest">{generatedCode}</span></p>
+              <p className="text-[9px] opacity-40 font-medium">Enviado a {data.securityEmail}</p>
+            </div>
+            <button onClick={() => setShowNotification(false)} className="p-2 hover:bg-white/5 rounded-full transition-all"><X size={16}/></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <header className="relative pt-24 pb-16 px-4 text-center z-10">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", stiffness: 60 }}
-          className="relative inline-block mb-12 group"
-        >
-          <div className="absolute inset-0 bg-blue-600/40 rounded-full blur-[60px] animate-pulse group-hover:bg-blue-500/50 transition-all duration-1000" />
-          <img 
-            src={data.headerLogo || DEFAULT_LOGO} 
-            alt="Logo" 
-            className="relative w-36 h-36 md:w-48 md:h-48 mx-auto rounded-full border-4 border-white/5 shadow-[0_0_80px_rgba(37,99,235,0.3)] object-cover hover:scale-105 transition-transform duration-1000 cursor-pointer"
-          />
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative inline-block mb-12">
+          <div className="absolute inset-0 bg-blue-600/30 rounded-full blur-[60px] animate-pulse" />
+          <img src={data.headerLogo || DEFAULT_LOGO} alt="Logo" className="relative w-36 h-36 md:w-48 md:h-48 mx-auto rounded-full border-4 border-white/5 shadow-4xl object-cover" />
         </motion.div>
-        
-        <motion.h1 className="font-orbitron text-5xl md:text-[6rem] font-black blue-gradient-text tracking-tighter filter drop-shadow-[0_0_30px_rgba(59,130,246,0.5)]">
-          Mus Artur
-        </motion.h1>
-        
-        <motion.p className="mt-6 text-sm md:text-lg font-light italic text-blue-100/70 tracking-[0.5em] uppercase">
-          Música que inspira · amor que transforma
-        </motion.p>
-        
-        <motion.button 
-          whileHover={{ scale: 1.05, y: -4, backgroundColor: "rgba(255,255,255,0.08)" }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsAdminOpen(true)}
-          className="mt-12 px-10 py-4 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full text-[9px] font-black uppercase tracking-[0.6em] flex items-center gap-4 mx-auto shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-all hover:border-blue-400/50 group"
-        >
-          <Settings size={16} className="text-blue-500 group-hover:rotate-180 transition-transform duration-1000" />
-          <span>Panel de Gestión</span>
-        </motion.button>
+        <h1 className="font-orbitron text-5xl md:text-[6.5rem] font-black blue-gradient-text tracking-tighter filter drop-shadow-2xl">Mus Artur</h1>
+        <p className="mt-6 text-sm md:text-lg font-light italic text-blue-100/60 tracking-[0.5em] uppercase">Música que inspira · amor que transforma</p>
+        <button onClick={() => { setIsAdminOpen(true); setLoginStep(1); setTwoFactorCode(''); setGeneratedCode(''); }} className="mt-12 px-12 py-5 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full text-[10px] font-black uppercase tracking-[0.6em] flex items-center gap-4 mx-auto shadow-4xl hover:border-blue-500/50 transition-all group">
+          <Settings size={18} className="text-blue-500 group-hover:rotate-180 transition-transform duration-1000" />
+          Terminal Admin
+        </button>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-8 py-20 relative z-10 space-y-36 md:space-y-52">
+      <main className="max-w-7xl mx-auto px-8 py-20 relative z-10 space-y-40 md:space-y-60">
         <Section title="Biografía" icon={<Sparkles className="text-blue-400" />}>
-          <div className="space-y-16">
-            <motion.div 
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-              className="relative w-full aspect-[21/9] md:aspect-[2.5/1] min-h-[250px] rounded-[3rem] md:rounded-[5rem] overflow-hidden shadow-3xl border border-white/5 group interactive-reflection"
-            >
-              <img src={data.artistCover || DEFAULT_BANNER} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[8s]" alt="Banner" />
+           <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 8, repeat: Infinity }} className="relative w-full aspect-[2.5/1] rounded-[5rem] overflow-hidden shadow-4xl border border-white/5 mb-16 interactive-reflection">
+              <img src={data.artistCover || DEFAULT_BANNER} className="w-full h-full object-cover" alt="Banner" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#020412] via-transparent to-transparent opacity-90" />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-white font-orbitron text-4xl md:text-7xl font-black opacity-10 tracking-[0.3em] select-none uppercase">Artista Oficial</span>
+           </motion.div>
+           <InteractiveCard>
+              <div className="bg-white/[0.01] backdrop-blur-3xl p-12 md:p-24 rounded-[4rem] border border-white/5 shadow-4xl floating">
+                <p className="text-xl md:text-4xl leading-relaxed font-light text-blue-50/90 italic border-l-8 border-blue-600 pl-12">"{data.about}"</p>
               </div>
-            </motion.div>
-
-            <InteractiveCard>
-              <div className="bg-white/[0.01] backdrop-blur-3xl p-12 md:p-20 rounded-[4rem] border border-white/5 shadow-3xl floating hover:bg-white/[0.03] transition-colors duration-1000">
-                <p className="text-xl md:text-3xl leading-relaxed font-light text-blue-50/90 italic border-l-4 border-blue-600 pl-10">
-                  "{data.about}"
-                </p>
-              </div>
-            </InteractiveCard>
-          </div>
+           </InteractiveCard>
         </Section>
 
-        <Section title="Música" icon={<Disc className="text-indigo-400 animate-spin-slow" />}>
-          <div className="grid gap-24">
-            {data.songs.length === 0 ? (
-              <div className="text-center py-40 opacity-20 border-2 border-dashed border-white/10 rounded-[4rem] flex flex-col items-center gap-6">
-                <Music size={48} />
-                <p className="text-xl font-orbitron tracking-widest uppercase">Explorando sonidos...</p>
-              </div>
-            ) : (
-              data.songs.map((song) => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 50 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-100px" }}
-                  key={song.id} 
-                  className="group relative bg-white/[0.01] backdrop-blur-3xl border border-white/5 p-6 md:p-10 rounded-[5rem] md:rounded-[7rem] shadow-3xl hover:bg-white/[0.04] transition-all duration-700 interactive-reflection"
-                >
-                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-10 relative z-10 px-4">
-                    <h3 className="text-3xl md:text-5xl font-orbitron font-black tracking-tighter group-hover:text-blue-400 transition-colors drop-shadow-2xl leading-none">{song.title}</h3>
-                    <div className="flex gap-4 items-center">
-                      <motion.button 
-                        whileHover={{ scale: 1.1, y: -5 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setShareSong(song)}
-                        className="p-4 w-14 h-14 md:w-16 md:h-16 bg-white/[0.02] border border-white/5 rounded-full flex items-center justify-center transition-all hover:bg-white/10 shadow-3xl text-blue-400"
-                        title="Compartir"
-                      >
-                        <Share2 size={20} />
-                      </motion.button>
-                      {song.youtubeLink && <SocialIcon type="YouTube" url={song.youtubeLink} size="sm" isSongLink />}
-                      {song.spotifyLink && <SocialIcon type="Spotify" url={song.spotifyLink} size="sm" isSongLink />}
-                    </div>
+        <Section title="Discografía" icon={<Disc className="text-indigo-400 animate-spin-slow" />}>
+          <div className="grid gap-28">
+            {data.songs.map((song) => (
+              <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} key={song.id} className="group relative bg-white/[0.01] backdrop-blur-3xl border border-white/5 p-10 rounded-[6rem] shadow-4xl interactive-reflection">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 mb-12 relative z-10 px-6">
+                  <h3 className="text-4xl md:text-6xl font-orbitron font-black tracking-tighter leading-none">{song.title}</h3>
+                  <div className="flex gap-4">
+                    <button onClick={() => setShareSong(song)} className="p-5 bg-white/5 rounded-full border border-white/5 text-blue-400 hover:bg-white/10 transition-all"><Share2 size={24} /></button>
+                    {song.videoUrl && <SocialIcon type="YouTube" url={song.videoUrl} size="sm" isSongLink />}
                   </div>
-                  {(song.videoUrl || song.youtubeLink) && (
-                    <div className="relative z-10 floating shadow-[0_30px_70px_rgba(0,0,0,0.8)] rounded-[3rem] md:rounded-[4rem] overflow-hidden w-full">
-                      <VideoEmbed url={song.videoUrl || song.youtubeLink} />
-                    </div>
-                  )}
-                </motion.div>
-              ))
-            )}
-          </div>
-        </Section>
-
-        <Section title="Eventos" icon={<Calendar className="text-blue-500" />}>
-          <div className="grid lg:grid-cols-2 gap-12">
-            {data.upcoming.length === 0 ? (
-              <p className="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest">Próximamente más novedades</p>
-            ) : data.upcoming.map(u => (
-              <motion.div key={u.id} className="bg-white/[0.02] border border-white/10 p-8 md:p-12 rounded-[4rem] hover:-translate-y-4 transition-all shadow-3xl group interactive-reflection">
-                <h3 className="text-xl md:text-2xl font-orbitron mb-8 flex items-center gap-5 tracking-tight">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping shrink-0" />
-                  {u.title}
-                </h3>
-                {u.youtubeTrailer && <VideoEmbed url={u.youtubeTrailer} />}
-                <div className="flex gap-6 mt-10">
-                  {u.youtubeTrailer && <ActionButton link={u.youtubeTrailer}>Ver Trailer</ActionButton>}
-                  {u.spotifyPreSave && <ActionButton link={u.spotifyPreSave} variant="secondary">Pre-guardar</ActionButton>}
                 </div>
+                {song.videoUrl && <VideoEmbed url={song.videoUrl} />}
               </motion.div>
             ))}
           </div>
         </Section>
 
-        <Section title="Social" icon={<Share2 className="text-blue-400" />}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {data.socials.map(s => (
-              <SocialIcon key={s.id} type={s.name} url={s.url} />
+        <Section title="Próximos Pasos" icon={<Calendar className="text-blue-500" />}>
+          <div className="grid lg:grid-cols-2 gap-14">
+            {data.upcoming.map(u => (
+              <div key={u.id} className="bg-white/[0.02] border border-white/10 p-12 rounded-[5rem] shadow-4xl interactive-reflection">
+                <h3 className="text-2xl font-orbitron mb-8 flex items-center gap-6"><span className="w-3 h-3 rounded-full bg-blue-500 animate-ping" />{u.title}</h3>
+                {u.youtubeTrailer && <VideoEmbed url={u.youtubeTrailer} />}
+              </div>
             ))}
           </div>
         </Section>
 
-        <Section title="Contacto" icon={<Mail className="text-indigo-500" />}>
-          <motion.div 
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-            className="bg-white/[0.01] backdrop-blur-3xl border border-white/5 p-12 md:p-20 rounded-[5rem] max-w-5xl mx-auto shadow-4xl interactive-reflection"
-          >
-            <ContactForm 
-              adminEmail={data.contactEmail} 
-              onMessageSent={(m) => setData(prev => ({...prev, messages: [m, ...prev.messages]}))} 
-            />
-          </motion.div>
+        <Section title="Conectar" icon={<Share2 className="text-blue-400" />}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+            {data.socials.map(s => <SocialIcon key={s.id} type={s.name} url={s.url} />)}
+          </div>
+        </Section>
+
+        <Section title="Canal Directo" icon={<Mail className="text-indigo-500" />}>
+          <div className="bg-white/[0.01] backdrop-blur-3xl border border-white/5 p-12 md:p-24 rounded-[6rem] max-w-5xl mx-auto shadow-4xl interactive-reflection">
+            <ContactForm adminEmail={data.contactEmail} onMessageSent={(m) => setData(prev => ({...prev, messages: [m, ...prev.messages]}))} />
+          </div>
         </Section>
       </main>
 
-      <footer className="text-center py-16 opacity-40 border-t border-white/5 mt-24">
-        <p className="text-[10px] font-black tracking-[0.3em] uppercase">© 2026 Mus Artur - Artista Oficial musartur.com</p>
+      <footer className="text-center py-24 opacity-30 border-t border-white/5 mt-32">
+        <p className="text-[11px] font-black tracking-[0.5em] uppercase">© 2026 MUSARTUR.COM - ACCESO RESTRINGIDO</p>
       </footer>
-
-      {/* Modals & Overlays */}
-      <AnimatePresence>
-        {shareSong && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6"
-          >
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" onClick={() => setShareSong(null)} />
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-gradient-to-br from-[#101424] to-[#020412] border border-white/10 rounded-[3rem] p-10 shadow-[0_40px_100px_rgba(0,0,0,0.8)] overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 p-6">
-                <button onClick={() => setShareSong(null)} className="p-3 bg-white/5 hover:bg-white/10 rounded-full transition-all border border-white/5">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="text-center space-y-8">
-                <div className="w-20 h-20 bg-blue-600/20 rounded-[2rem] flex items-center justify-center mx-auto border border-blue-500/20 shadow-2xl">
-                  <Share2 size={32} className="text-blue-500" />
-                </div>
-                
-                <div className="space-y-3">
-                  <h3 className="text-2xl font-orbitron font-black text-white tracking-tighter uppercase">Compartir</h3>
-                  <p className="text-base text-blue-400 font-bold opacity-80">{shareSong.title}</p>
-                </div>
-
-                <div className="space-y-6">
-                   <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-3 pl-6 rounded-full overflow-hidden">
-                    <span className="text-[10px] opacity-40 font-mono truncate flex-1">
-                      musartur.com/share/{shareSong.id}
-                    </span>
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(`https://musartur.com/song/${shareSong.id}`);
-                        alert("Enlace copiado al portapapeles");
-                      }}
-                      className="p-4 bg-blue-600 rounded-full hover:bg-blue-500 transition-all shadow-xl"
-                    >
-                      <Copy size={18} />
-                    </button>
-                  </div>
-
-                  <div className="flex justify-center gap-6 pt-4">
-                    <SocialShareButton type="WhatsApp" song={shareSong} icon={<Send size={24} className="rotate-[-20deg]" />} color="#25D366" />
-                    <SocialShareButton type="Instagram" song={shareSong} icon={<Instagram size={24} />} color="#E1306C" />
-                    <SocialShareButton type="Twitter" song={shareSong} icon={<Twitter size={24} />} color="#1DA1F2" />
-                    <SocialShareButton type="Facebook" song={shareSong} icon={<Facebook size={24} />} color="#1877F2" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isPublishing && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-blue-600 flex flex-col items-center justify-center text-white p-10"
-          >
-            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }} className="mb-8">
-              <RefreshCcw size={80} strokeWidth={1} />
-            </motion.div>
-            <h2 className="text-4xl md:text-6xl font-orbitron font-black tracking-tighter uppercase text-center">Publicando en Dominio</h2>
-            <p className="mt-4 text-sm md:text-lg font-light tracking-[0.4em] opacity-60 uppercase text-center">Actualizando servidores de musartur.com</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Admin Panel */}
       <AnimatePresence>
         {isAdminOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-[#020412]/98 backdrop-blur-3xl overflow-y-auto">
-            <div className="sticky top-0 z-[60] bg-[#020412]/90 backdrop-blur-xl border-b border-white/10 px-8 py-6 flex justify-between items-center shadow-2xl">
-              <div className="flex items-center gap-6">
-                <div className="p-3 bg-blue-600/20 rounded-xl"><Settings size={24} className="text-blue-500" /></div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-[#020412]/99 backdrop-blur-3xl overflow-y-auto">
+            <div className="sticky top-0 z-[60] bg-[#020412]/90 backdrop-blur-2xl border-b border-white/10 px-10 py-8 flex justify-between items-center shadow-4xl">
+              <div className="flex items-center gap-8">
+                <div className="p-4 bg-blue-600/20 rounded-2xl"><Settings size={28} className="text-blue-500" /></div>
                 <div>
-                  <h2 className="text-xl md:text-2xl font-orbitron font-black text-white tracking-tighter uppercase leading-none">Admin Console</h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
-                    <span className="text-[8px] uppercase font-black tracking-[0.2em] opacity-50">{isSaving ? 'Sincronizando...' : 'Todos los cambios guardados'}</span>
+                  <h2 className="text-2xl font-orbitron font-black text-white tracking-widest uppercase">Seguridad Administrativa</h2>
+                  <div className="flex items-center gap-3 mt-1">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]" />
+                    <span className="text-[9px] uppercase font-black tracking-widest opacity-60">Protección de Datos Activa</span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                {isLoggedIn && (
-                  <button onClick={handlePublish} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 shadow-3xl transition-all">
-                    <CloudUpload size={18} /> Publicar Sitio
-                  </button>
-                )}
-                <button onClick={() => setIsAdminOpen(false)} className="p-3 bg-white/5 rounded-full hover:bg-red-500/20 transition-all border border-white/10 group"><X size={20} className="group-hover:rotate-90 transition-transform" /></button>
-              </div>
+              <button onClick={() => { setIsAdminOpen(false); setShowNotification(false); }} className="p-4 bg-white/5 rounded-full hover:bg-red-500/20 border border-white/10 transition-all"><X size={24} /></button>
             </div>
 
-            <div className="max-w-7xl mx-auto p-8 md:p-20 pb-40">
+            <div className="max-w-7xl mx-auto p-10 md:p-24 pb-48">
               {!isLoggedIn ? (
-                <div className="max-w-md mx-auto py-24 text-center space-y-12">
-                  <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 4 }} className="w-24 h-24 bg-blue-600/10 rounded-[2.5rem] flex items-center justify-center mx-auto border border-blue-500/20 shadow-2xl">
-                    <ShieldCheck size={40} className="text-blue-500" />
+                <div className="max-w-md mx-auto py-12 text-center space-y-16">
+                   <motion.div animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }} transition={{ repeat: Infinity, duration: 6 }} className="w-28 h-28 bg-blue-600/10 rounded-[3rem] flex items-center justify-center mx-auto border border-blue-500/20 shadow-4xl">
+                    {loginStep === 1 ? <Lock size={48} className="text-blue-500" /> : <Smartphone size={48} className="text-amber-500" />}
                   </motion.div>
-                  <div className="space-y-6">
-                    <h3 className="text-2xl font-orbitron font-black uppercase tracking-widest text-blue-100">Acceso Seguro</h3>
-                    <div className="space-y-4">
-                      <div className="space-y-2 text-left">
-                        <label className="text-[9px] font-black uppercase tracking-widest opacity-40 ml-4">Email de Administrador</label>
-                        <input type="email" placeholder="admin@musartur.com" value={loginForm.email} onChange={e => {setLoginForm(p => ({...p, email: e.target.value})); setLoginError('');}} className={`w-full bg-white/5 border ${loginError && !isValidEmail(loginForm.email) ? 'border-red-500' : 'border-white/10'} rounded-[1.5rem] px-8 py-5 outline-none focus:border-blue-500 text-sm transition-all`} />
-                      </div>
-                      <div className="space-y-2 text-left">
-                        <label className="text-[9px] font-black uppercase tracking-widest opacity-40 ml-4">Contraseña</label>
-                        <input type="password" placeholder="••••••••" value={loginForm.password} onChange={e => {setLoginForm(p => ({...p, password: e.target.value})); setLoginError('');}} className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] px-8 py-5 outline-none focus:border-blue-500 text-sm" />
-                      </div>
-                      
-                      {loginError && (
-                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-red-500 text-[10px] font-bold uppercase tracking-widest bg-red-500/10 p-4 rounded-xl">
-                          <AlertCircle size={14} />
-                          {loginError}
-                        </motion.div>
-                      )}
-
-                      <button onClick={handleLogin} className="w-full bg-blue-600 py-6 rounded-[1.5rem] font-black uppercase tracking-[0.4em] text-[10px] hover:bg-blue-500 shadow-3xl transition-all">Entrar al Sistema</button>
-                    </div>
-                  </div>
+                  
+                  <AnimatePresence mode="wait">
+                    {loginStep === 1 ? (
+                      <motion.div key="s1" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-10">
+                         <div className="space-y-4">
+                            <h3 className="text-3xl font-orbitron font-black uppercase tracking-widest">Identificación</h3>
+                            <p className="text-[10px] uppercase font-black opacity-30 tracking-[0.3em]">Acceso Maestro Nivel 5</p>
+                         </div>
+                         <div className="space-y-5">
+                            <input type="email" placeholder="Usuario Raíz" value={loginForm.email} onChange={e => {setLoginForm(p => ({...p, email: e.target.value})); setLoginError('');}} className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-10 py-6 outline-none focus:border-blue-500 transition-all text-sm" />
+                            <input type="password" placeholder="Clave Maestra" value={loginForm.password} onChange={e => {setLoginForm(p => ({...p, password: e.target.value})); setLoginError('');}} className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-10 py-6 outline-none focus:border-blue-500 transition-all text-sm" />
+                            {loginError && <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">{loginError}</p>}
+                            <button onClick={handleLogin} disabled={isVerifying} className="w-full bg-blue-600 py-7 rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-4xl flex items-center justify-center gap-4 hover:bg-blue-500 transition-all">
+                              {isVerifying ? <Loader2 className="animate-spin" size={18}/> : <Fingerprint size={18}/>} Iniciar Fase de Validación
+                            </button>
+                         </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div key="s2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-10">
+                        <div className="space-y-4">
+                           <h3 className="text-3xl font-orbitron font-black uppercase tracking-widest text-amber-500">2-Factor Auth</h3>
+                           <p className="text-[10px] uppercase font-black opacity-40 tracking-[0.2em]">Código dinámico enviado a: {data.securityEmail}</p>
+                        </div>
+                        <div className="space-y-8">
+                           <input type="text" maxLength={6} placeholder="000000" value={twoFactorCode} onChange={e => {setTwoFactorCode(e.target.value); setLoginError('');}} className="w-full bg-white/5 border border-amber-500/30 rounded-[2.5rem] py-10 text-center text-5xl font-orbitron font-bold tracking-[0.6em] outline-none text-amber-500 focus:border-amber-500" />
+                           {loginError && <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">{loginError}</p>}
+                           <div className="flex gap-4">
+                              <button onClick={() => { setLoginStep(1); setShowNotification(false); }} className="px-8 py-7 bg-white/5 border border-white/10 rounded-[2rem] text-[10px] font-black uppercase tracking-widest">Atrás</button>
+                              <button onClick={handleVerify2FA} disabled={isVerifying} className="flex-1 bg-amber-500 text-black py-7 rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-4xl flex items-center justify-center gap-4">
+                                {isVerifying ? <Loader2 className="animate-spin" size={18}/> : <ShieldCheck size={18}/>} Validar e Ingresar
+                              </button>
+                           </div>
+                           <button onClick={resendCode} className="text-[9px] uppercase font-black tracking-widest opacity-30 hover:opacity-100 transition-opacity">¿No recibiste el código? Reenviar ahora</button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ) : (
-                <div className="space-y-16">
-                  {/* Status Banner */}
-                  <div className="bg-blue-600/10 border border-blue-500/20 rounded-[3rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-6">
-                      <div className="w-16 h-16 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400">
-                        <Globe size={32} />
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-orbitron font-black uppercase tracking-tighter">Estado del Dominio</h4>
-                        <p className="text-xs opacity-40 font-mono tracking-widest uppercase">musartur.com <span className="text-green-500 font-black">· ACTIVO</span></p>
-                      </div>
-                    </div>
-                    <div className="flex gap-4">
-                       <div className="px-6 py-3 bg-black/40 border border-white/5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-blue-500"/> SSL PROTEGIDO (NIVEL COM)
-                       </div>
-                    </div>
+                <div className="space-y-20">
+                  <div className="grid md:grid-cols-2 gap-10">
+                     <div className="bg-blue-600/10 border border-blue-500/20 rounded-[4rem] p-10 flex items-center gap-8">
+                        <div className="w-20 h-20 bg-blue-600/20 rounded-3xl flex items-center justify-center text-blue-400 shadow-2xl"><Globe size={40} /></div>
+                        <div>
+                          <h4 className="text-xl font-orbitron font-black uppercase tracking-widest">musartur.com</h4>
+                          <div className="flex items-center gap-3 mt-1"><CheckCircle size={14} className="text-green-500"/> <span className="text-[10px] font-black opacity-60">DNS OPERATIVO</span></div>
+                        </div>
+                     </div>
+                     <div className="bg-indigo-600/10 border border-indigo-500/20 rounded-[4rem] p-10 flex items-center gap-8">
+                        <div className="w-20 h-20 bg-indigo-600/20 rounded-3xl flex items-center justify-center text-indigo-400 shadow-2xl"><ShieldCheck size={40} /></div>
+                        <div>
+                          <h4 className="text-xl font-orbitron font-black uppercase tracking-widest">Nivel de Seguridad</h4>
+                          <div className="flex items-center gap-3 mt-1"><BellRing size={14} className="text-amber-500"/> <span className="text-[10px] font-black opacity-60">2FA DYNAMICS ACTIVE</span></div>
+                        </div>
+                     </div>
                   </div>
 
-                  <AdminDashboard data={data} setData={setData} onLogout={() => setIsLoggedIn(false)} />
+                  <AdminDashboard data={data} setData={setData} onLogout={() => { setIsLoggedIn(false); setLoginStep(1); }} onPublish={handlePublish} />
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {shareSong && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-3xl" onClick={() => setShareSong(null)} />
+            <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="relative w-full max-w-lg bg-[#0f172a] border border-white/10 rounded-[4rem] p-12 shadow-4xl text-center space-y-12">
+              <div className="w-24 h-24 bg-blue-600/20 rounded-[2.5rem] flex items-center justify-center mx-auto border border-blue-500/20 shadow-2xl text-blue-500"><Share2 size={40} /></div>
+              <div className="space-y-4">
+                <h3 className="text-3xl font-orbitron font-black uppercase tracking-tighter">Compartir Track</h3>
+                <p className="text-blue-400 font-bold uppercase tracking-widest text-sm">{shareSong.title}</p>
+              </div>
+              <div className="space-y-6">
+                 <div className="bg-black/40 border border-white/5 p-4 pl-10 rounded-full flex items-center justify-between">
+                    <span className="text-[10px] opacity-40 font-mono truncate mr-4">musartur.com/track/{shareSong.id}</span>
+                    <button onClick={() => { navigator.clipboard.writeText(`https://musartur.com/track/${shareSong.id}`); alert("Link copiado"); }} className="p-5 bg-blue-600 rounded-full shadow-2xl transition-all hover:bg-blue-500"><Copy size={20} /></button>
+                 </div>
+              </div>
+              <button onClick={() => setShareSong(null)} className="text-[10px] uppercase font-black tracking-widest opacity-20 hover:opacity-100 transition-opacity">Cerrar</button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -464,11 +400,11 @@ const App: React.FC = () => {
 };
 
 const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
-  <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }}>
-    <div className="flex flex-col md:flex-row items-center gap-6 mb-20">
-      <div className="p-6 bg-blue-600/10 rounded-2xl border border-blue-500/10 shadow-xl text-blue-400">{icon}</div>
-      <h2 className="text-4xl md:text-5xl font-orbitron font-black uppercase tracking-tighter text-white/90">{title}</h2>
-      <div className="h-px flex-1 bg-gradient-to-r from-blue-500/20 to-transparent ml-8 hidden md:block" />
+  <motion.section initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+    <div className="flex flex-col md:flex-row items-center gap-8 mb-24">
+      <div className="p-7 bg-blue-600/10 rounded-3xl border border-blue-500/10 shadow-4xl text-blue-500">{icon}</div>
+      <h2 className="text-5xl md:text-7xl font-orbitron font-black uppercase tracking-tighter">{title}</h2>
+      <div className="h-px flex-1 bg-gradient-to-r from-blue-600/20 to-transparent ml-12 hidden md:block" />
     </div>
     {children}
   </motion.section>
@@ -477,303 +413,147 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
 const InteractiveCard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const rotateX = useSpring(useTransform(y, [-300, 300], [4, -4]), { stiffness: 120, damping: 25 });
-  const rotateY = useSpring(useTransform(x, [-300, 300], [-4, 4]), { stiffness: 120, damping: 25 });
+  const rx = useSpring(useTransform(y, [-300, 300], [5, -5]), { stiffness: 100 });
+  const ry = useSpring(useTransform(x, [-300, 300], [-5, 5]), { stiffness: 100 });
   return (
-    <motion.div 
-      style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-      onMouseMove={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        x.set(e.clientX - (rect.left + rect.width / 2));
-        y.set(e.clientY - (rect.top + rect.height / 2));
-      }}
-      onMouseLeave={() => { x.set(0); y.set(0); }}
-    >
+    <motion.div style={{ rotateX: rx, rotateY: ry, transformStyle: "preserve-3d" }} onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); x.set(e.clientX - (r.left + r.width / 2)); y.set(e.clientY - (r.top + r.height / 2)); }} onMouseLeave={() => { x.set(0); y.set(0); }}>
       {children}
     </motion.div>
   );
 };
 
-const VideoEmbed: React.FC<{ url: string | undefined }> = ({ url }) => {
+const VideoEmbed: React.FC<{ url: string }> = ({ url }) => {
   const id = getYTid(url);
-  if (!id) return <div className="aspect-video bg-black/60 rounded-[3rem] flex flex-col items-center justify-center opacity-40 text-xs">Sin Video</div>;
+  if (!id) return <div className="aspect-video bg-black/60 rounded-[4rem] flex items-center justify-center opacity-30 italic">Previsualización no disponible</div>;
   return (
-    <div className="aspect-video w-full rounded-[3rem] overflow-hidden border border-white/10 bg-black">
-      <iframe src={`https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`} title="YouTube" className="w-full h-full border-0" allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
+    <div className="aspect-video w-full rounded-[4rem] overflow-hidden border border-white/10 shadow-4xl bg-black">
+      <iframe src={`https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&vq=hd1080`} className="w-full h-full border-0" allowFullScreen allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" />
     </div>
   );
 };
 
-const ActionButton: React.FC<{ link: string; children: React.ReactNode; variant?: 'primary' | 'secondary' }> = ({ link, children, variant = 'primary' }) => (
-  <motion.a whileHover={{ y: -6, scale: 1.02 }} href={link} target="_blank" className={`flex-1 text-center py-5 rounded-[2rem] font-black uppercase text-[9px] tracking-widest ${variant === 'primary' ? 'bg-blue-600 text-white shadow-xl' : 'bg-white/5 border border-white/10'}`}>{children}</motion.a>
-);
-
-const SocialIcon: React.FC<{ type: Social['name']; url: string; size?: 'sm' | 'md', isSongLink?: boolean }> = ({ type, url, size = 'md', isSongLink }) => {
-  const logos: Record<string, string> = {
-    Instagram: "https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png",
-    YouTube: "https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg",
-    Spotify: "https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg",
-    Facebook: "https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg",
-    TikTok: "https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg",
-    X: "https://upload.wikimedia.org/wikipedia/commons/c/ce/X_logo_2023.svg",
-    Snapchat: "https://upload.wikimedia.org/wikipedia/en/a/ad/Snapchat_logo.svg"
-  };
+const SocialIcon: React.FC<{ type: Social['name']; url: string; size?: 'sm' | 'md', isSongLink?: boolean }> = ({ type, url, size = 'md' }) => {
+  const icons: any = { Instagram: Instagram, YouTube: Music, Spotify: Disc, Facebook: Facebook, TikTok: Music, X: Twitter, Snapchat: Sparkles };
+  const Icon = icons[type] || Globe;
   return (
-    <motion.a whileHover={{ y: -8, scale: 1.05 }} href={url} target="_blank" className={`${size === 'sm' ? 'p-4 w-14 h-14' : 'p-10 h-36'} bg-white/[0.02] border border-white/5 rounded-[2.5rem] flex items-center justify-center transition-all hover:bg-white/10 shadow-2xl`}><img src={logos[type]} className={`${size === 'sm' ? 'w-8' : 'w-16'} object-contain`} alt={type} /></motion.a>
+    <motion.a whileHover={{ y: -10, scale: 1.05 }} href={url} target="_blank" className={`${size === 'sm' ? 'p-5 w-16 h-16' : 'p-12 h-44'} bg-white/[0.02] border border-white/5 rounded-[3rem] flex items-center justify-center shadow-4xl transition-all hover:bg-blue-600/10 hover:border-blue-500/30 text-blue-400`}><Icon size={size === 'sm' ? 24 : 48} /></motion.a>
   );
 };
 
-const SocialShareButton: React.FC<{ type: string; song: Song; icon: React.ReactNode; color: string }> = ({ type, song, icon, color }) => {
-  const handleShare = () => {
-    const text = `¡Escucha "${song.title}" de Mus Artur!`;
-    const url = `https://musartur.com/song/${song.id}`;
-    let shareUrl = '';
-    
-    switch(type) {
-      case 'WhatsApp': shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`; break;
-      case 'Twitter': shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`; break;
-      case 'Facebook': shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`; break;
-      case 'Instagram': alert("Enlace copiado para compartir en Stories."); return;
-    }
-    
-    if(shareUrl) window.open(shareUrl, '_blank');
-  };
-
+const ContactForm: React.FC<{ adminEmail: string; onMessageSent: (m: Message) => void }> = ({ onMessageSent }) => {
+  const [f, setF] = useState({ name: '', email: '', msg: '' });
+  const [l, setL] = useState(false);
+  const send = () => { if(!f.name || !f.email || !f.msg) return; setL(true); setTimeout(() => { onMessageSent({ id: Date.now().toString(), name: f.name, email: f.email, message: f.msg, date: new Date().toLocaleString() }); setF({ name: '', email: '', msg: '' }); setL(false); alert("¡Cifrado y enviado!"); }, 2000); };
   return (
-    <motion.button whileHover={{ y: -6, scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleShare} className="flex flex-col items-center gap-2 group">
-      <div className="w-14 h-14 rounded-full flex items-center justify-center border border-white/10 bg-white/5 transition-all group-hover:bg-white/10" style={{ color: color }}>
-        {icon}
+    <div className="space-y-12">
+      <div className="grid md:grid-cols-2 gap-10">
+        <input placeholder="Firma" value={f.name} onChange={e => setF({...f, name: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[2.5rem] px-12 py-7 outline-none focus:border-blue-500 transition-all text-sm"/>
+        <input placeholder="Email Retorno" value={f.email} onChange={e => setF({...f, email: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[2.5rem] px-12 py-7 outline-none focus:border-blue-500 transition-all text-sm"/>
       </div>
-      <span className="text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100 transition-opacity">
-        {type}
-      </span>
-    </motion.button>
-  );
-};
-
-const ContactForm: React.FC<{ adminEmail: string; onMessageSent: (m: Message) => void }> = ({ adminEmail, onMessageSent }) => {
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{name?: string, email?: string, message?: string}>({});
-
-  const handleSend = () => {
-    const newErrors: any = {};
-    if (!formData.name) newErrors.name = "Requerido";
-    if (!formData.email) newErrors.email = "Requerido";
-    else if (!isValidEmail(formData.email)) newErrors.email = "Email inválido";
-    if (!formData.message) newErrors.message = "Requerido";
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setErrors({});
-    setLoading(true);
-    setTimeout(() => {
-      onMessageSent({ id: Date.now().toString(), ...formData, date: new Date().toLocaleString() });
-      setFormData({ name: '', email: '', message: '' });
-      setLoading(false);
-      alert("¡Tu mensaje ha sido enviado directamente a Mus Artur!");
-    }, 2000);
-  };
-
-  return (
-    <div className="space-y-10">
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-2">
-          <input placeholder="Nombre Completo" className={`w-full bg-white/5 border ${errors.name ? 'border-red-500' : 'border-white/5'} rounded-[2rem] px-10 py-5 outline-none text-sm focus:border-blue-500 transition-colors`} value={formData.name} onChange={e => {setFormData(p => ({...p, name: e.target.value})); if(errors.name) setErrors(prev => ({...prev, name: undefined}));}}/>
-          {errors.name && <p className="text-red-500 text-[9px] uppercase font-black ml-6 tracking-widest">{errors.name}</p>}
-        </div>
-        <div className="space-y-2">
-          <input placeholder="Correo Electrónico" className={`w-full bg-white/5 border ${errors.email ? 'border-red-500' : 'border-white/5'} rounded-[2rem] px-10 py-5 outline-none text-sm focus:border-blue-500 transition-colors`} value={formData.email} onChange={e => {setFormData(p => ({...p, email: e.target.value})); if(errors.email) setErrors(prev => ({...prev, email: undefined}));}}/>
-          {errors.email && <p className="text-red-500 text-[9px] uppercase font-black ml-6 tracking-widest">{errors.email}</p>}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <textarea placeholder="Tu mensaje para Mus Artur..." rows={5} className={`w-full bg-white/5 border ${errors.message ? 'border-red-500' : 'border-white/5'} rounded-[2.5rem] px-10 py-8 outline-none resize-none text-sm focus:border-blue-500 transition-colors`} value={formData.message} onChange={e => {setFormData(p => ({...p, message: e.target.value})); if(errors.message) setErrors(prev => ({...prev, message: undefined}));}}/>
-        {errors.message && <p className="text-red-500 text-[9px] uppercase font-black ml-6 tracking-widest">{errors.message}</p>}
-      </div>
-      <button onClick={handleSend} disabled={loading} className="w-full bg-blue-600 py-6 rounded-full font-black uppercase tracking-[0.6em] text-[10px] shadow-3xl hover:bg-blue-500 transition-all">{loading ? 'Procesando Envío...' : 'Enviar Mensaje Directo'}</button>
+      <textarea placeholder="Frecuencia de mensaje..." rows={6} value={f.msg} onChange={e => setF({...f, msg: e.target.value})} className="w-full bg-white/5 border border-white/5 rounded-[3.5rem] px-12 py-10 outline-none focus:border-blue-500 transition-all text-sm resize-none"/>
+      <button onClick={send} disabled={l} className="w-full bg-blue-600 py-8 rounded-full font-black uppercase tracking-[0.8em] text-[12px] shadow-4xl hover:bg-blue-500 transition-all flex items-center justify-center gap-4">
+        {l ? <Loader2 className="animate-spin" size={20}/> : <Send size={20}/>} Transmitir Mensaje
+      </button>
     </div>
   );
 };
 
-const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>>; onLogout: () => void }> = ({ data, setData, onLogout }) => {
-  const [newSong, setNewSong] = useState({ title: '', youtubeLink: '', spotifyLink: '', videoUrl: '' });
-  const [newUpcoming, setNewUpcoming] = useState({ title: '', youtubeTrailer: '', spotifyPreSave: '' });
-  const [editingItem, setEditingItem] = useState<{ type: 'songs' | 'upcoming', id: string } | null>(null);
-
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
-
-  const addItem = (type: 'songs' | 'upcoming', payload: any) => {
-    if (!payload.title) return;
-    setData(prev => ({ ...prev, [type]: [{ id: Date.now().toString(), ...payload }, ...prev[type]] }));
-  };
-
-  const deleteItem = (type: 'songs' | 'upcoming' | 'messages', id: string) => {
-    if (confirm("¿Confirmas la eliminación definitiva?")) setData(prev => ({ ...prev, [type]: (prev[type] as any[]).filter(i => i.id !== id) }));
-  };
-
-  const updateItem = (type: 'songs' | 'upcoming', id: string, field: string, value: string) => {
-    setData(prev => ({
-      ...prev,
-      [type]: (prev[type] as any[]).map(item => item.id === id ? { ...item, [field]: value } : item)
-    }));
-  };
-
-  const updateSocial = (id: string, url: string) => setData(p => ({ ...p, socials: p.socials.map(s => s.id === id ? { ...s, url } : s) }));
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'headerLogo' | 'artistCover') => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setData(prev => ({ ...prev, [field]: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>>; onLogout: () => void; onPublish: () => void }> = ({ data, setData, onLogout, onPublish }) => {
+  const [newS, setNewS] = useState({ title: '', videoUrl: '' });
+  const logoRef = useRef<HTMLInputElement>(null);
+  const bannerRef = useRef<HTMLInputElement>(null);
+  const update = (f: string, v: any) => setData(p => ({...p, [f]: v}));
+  const addS = () => { if(!newS.title) return; setData(p => ({...p, songs: [{id: Date.now().toString(), ...newS}, ...p.songs]})); setNewS({title:'', videoUrl:''}); };
+  const del = (t: any, id: string) => setData(p => ({...p, [t]: (p[t] as any[]).filter(i => i.id !== id)}));
+  const handleFile = (e: any, f: string) => { const file = e.target.files?.[0]; if(file) { const r = new FileReader(); r.onload = () => update(f, r.result); r.readAsDataURL(file); } };
 
   return (
-    <div className="grid xl:grid-cols-2 gap-16">
-      <div className="space-y-16">
-        <AdminCard title="Identidad Visual" icon={<ImageIcon />}>
+    <div className="grid xl:grid-cols-2 gap-20">
+      <div className="space-y-20">
+        <AdminCard title="Seguridad de la Cuenta" icon={<Lock />}>
+           <div className="space-y-8">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-black opacity-30 tracking-widest ml-4">Email Maestro (Notificaciones 2FA)</label>
+                <input value={data.securityEmail} onChange={e => update('securityEmail', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-2xl px-8 py-5 outline-none focus:border-amber-500 text-amber-500 font-bold" />
+              </div>
+              <div className="p-6 bg-amber-500/5 border border-amber-500/10 rounded-3xl flex items-center gap-6">
+                 <ShieldCheck className="text-amber-500" size={32}/>
+                 <p className="text-[10px] text-amber-200/50 leading-relaxed font-bold uppercase tracking-widest">El sistema enviará el código de verificación dinámico a este email en cada inicio de sesión administrativo.</p>
+              </div>
+           </div>
+        </AdminCard>
+
+        <AdminCard title="Identidad de Marca" icon={<ImageIcon />}>
            <div className="space-y-10">
-            <div className="space-y-4">
-              <label className="text-[9px] font-black uppercase opacity-20 ml-4 block">Imagen de Perfil</label>
-              <div className="flex items-center gap-8">
-                <img src={data.headerLogo || DEFAULT_LOGO} className="w-20 h-20 rounded-full border-2 border-blue-500/30 object-cover shadow-2xl" alt="Preview Logo" />
-                <div className="flex-1 space-y-3">
-                  <input className="w-full bg-black/30 border border-white/10 rounded-xl px-6 py-4 text-xs outline-none focus:border-blue-500/50 transition-all" value={data.headerLogo} onChange={e => setData(p => ({...p, headerLogo: e.target.value}))} placeholder="URL de la imagen" />
-                  <button onClick={() => logoInputRef.current?.click()} className="w-full p-4 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-600/30 transition-all flex items-center justify-center gap-2 font-black uppercase text-[8px] tracking-widest px-6">
-                    <Upload size={14}/> Cambiar Imagen
-                  </button>
-                </div>
+              <div className="flex items-center gap-10">
+                 <img src={data.headerLogo} className="w-24 h-24 rounded-full border-2 border-blue-500/30 object-cover shadow-4xl" alt="P" />
+                 <button onClick={() => logoRef.current?.click()} className="flex-1 p-5 bg-blue-600/10 border border-blue-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest"><Upload size={16} className="inline mr-3"/> Cambiar Logo</button>
+                 <input type="file" ref={logoRef} hidden onChange={e => handleFile(e, 'headerLogo')} />
               </div>
-              <input type="file" ref={logoInputRef} hidden accept="image/*" onChange={(e) => handleFileChange(e, 'headerLogo')} />
-            </div>
-
-            <div className="space-y-4">
-              <label className="text-[9px] font-black uppercase opacity-20 ml-4 block">Banner Principal</label>
               <div className="space-y-4">
-                <div className="w-full aspect-[2.5/1] rounded-2xl border-2 border-blue-500/30 overflow-hidden shadow-2xl bg-black">
-                   <img src={data.artistCover || DEFAULT_BANNER} className="w-full h-full object-cover" alt="Preview Banner" />
-                </div>
-                <div className="flex gap-3">
-                  <input className="flex-1 bg-black/30 border border-white/10 rounded-xl px-6 py-4 text-xs outline-none focus:border-blue-500/50 transition-all" value={data.artistCover} onChange={e => setData(p => ({...p, artistCover: e.target.value}))} placeholder="URL del banner" />
-                  <button onClick={() => bannerInputRef.current?.click()} className="p-4 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-600/30 transition-all flex items-center gap-2 font-black uppercase text-[8px] tracking-widest px-6">
-                    <Upload size={14}/> Cambiar Banner
-                  </button>
-                </div>
+                 <div className="w-full aspect-[3/1] rounded-3xl border-2 border-blue-500/20 overflow-hidden shadow-4xl bg-black">
+                    <img src={data.artistCover} className="w-full h-full object-cover" alt="B" />
+                 </div>
+                 <button onClick={() => bannerRef.current?.click()} className="w-full p-5 bg-blue-600/10 border border-blue-500/20 rounded-2xl font-black text-[10px] uppercase tracking-widest"><Upload size={16} className="inline mr-3"/> Cambiar Banner</button>
+                 <input type="file" ref={bannerRef} hidden onChange={e => handleFile(e, 'artistCover')} />
               </div>
-              <input type="file" ref={bannerInputRef} hidden accept="image/*" onChange={(e) => handleFileChange(e, 'artistCover')} />
-            </div>
-          </div>
+           </div>
         </AdminCard>
-
-        <AdminCard title="Contenido Biográfico" icon={<Sparkles />}>
-          <textarea className="w-full bg-black/40 border border-white/10 rounded-[2rem] p-8 min-h-[250px] outline-none text-sm focus:border-blue-500 transition-all" value={data.about} onChange={e => setData(p => ({...p, about: e.target.value}))} />
-        </AdminCard>
-
-        <AdminCard title="Redes Sociales" icon={<Share2 />}>
-          <div className="grid gap-4">
-            {data.socials.map(s => (
-              <div key={s.id} className="space-y-1">
-                <span className="text-[9px] uppercase font-black opacity-30 ml-4">{s.name}</span>
-                <input className="w-full bg-black/30 border border-white/10 rounded-xl px-6 py-4 text-xs focus:border-blue-500 transition-all" value={s.url} onChange={e => updateSocial(s.id, e.target.value)} />
-              </div>
-            ))}
-          </div>
+        
+        <AdminCard title="Biografía Oficial" icon={<Sparkles />}>
+           <textarea value={data.about} onChange={e => update('about', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-3xl p-8 min-h-[300px] outline-none focus:border-blue-500 text-sm"/>
         </AdminCard>
       </div>
 
-      <div className="space-y-16">
-        <AdminCard title="Catálogo Musical" icon={<Disc />}>
-          <div className="space-y-6 max-h-[800px] overflow-y-auto pr-3 custom-scrollbar">
-            <div className="space-y-4 bg-blue-600/5 p-6 rounded-3xl border border-blue-500/10">
-              <span className="text-[10px] font-black uppercase opacity-40 tracking-widest block mb-2">Nueva Entrada</span>
-              <input placeholder="Título de la canción" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.title} onChange={e => setNewSong(p => ({...p, title: e.target.value}))} />
-              <input placeholder="YouTube Embed URL" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.videoUrl} onChange={e => setNewSong(p => ({...p, videoUrl: e.target.value}))} />
-              <input placeholder="Link Oficial YouTube" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.youtubeLink} onChange={e => setNewSong(p => ({...p, youtubeLink: e.target.value}))} />
-              <input placeholder="Link Spotify" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.spotifyLink} onChange={e => setNewSong(p => ({...p, spotifyLink: e.target.value}))} />
-              <button onClick={() => { addItem('songs', newSong); setNewSong({title:'', youtubeLink:'', spotifyLink:'', videoUrl:''}); }} className="w-full bg-blue-600 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest transition-colors hover:bg-blue-500">Insertar Tema</button>
-            </div>
-
-            <div className="space-y-3 pt-8 border-t border-white/5">
-              {data.songs.map(s => (
-                <div key={s.id} className="bg-white/[0.03] p-6 rounded-2xl border border-white/5 space-y-4 group">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-100">{s.title}</span>
-                    <div className="flex gap-2">
-                      <button onClick={() => setEditingItem(editingItem?.id === s.id ? null : { type: 'songs', id: s.id })} className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"><Edit3 size={16}/></button>
-                      <button onClick={() => deleteItem('songs', s.id)} className="p-2 text-red-500/30 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"><Trash2 size={16}/></button>
-                    </div>
-                  </div>
-                  {editingItem?.id === s.id && (
-                    <div className="space-y-3 pt-4 border-t border-white/5">
-                      <input className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-[11px]" value={s.title} onChange={e => updateItem('songs', s.id, 'title', e.target.value)} />
-                      <input className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-2 text-[11px]" value={s.videoUrl} onChange={e => updateItem('songs', s.id, 'videoUrl', e.target.value)} />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </AdminCard>
-
-        <AdminCard title="Eventos y Estrenos" icon={<Calendar />}>
-          <div className="space-y-6 max-h-[800px] overflow-y-auto pr-3 custom-scrollbar">
-             <div className="space-y-4 bg-indigo-600/5 p-6 rounded-3xl border border-indigo-500/10">
-              <span className="text-[10px] font-black uppercase opacity-40 tracking-widest block mb-2">Nuevo Lanzamiento</span>
-              <input placeholder="Nombre del evento/tema" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newUpcoming.title} onChange={e => setNewUpcoming(p => ({...p, title: e.target.value}))} />
-              <input placeholder="URL del Trailer" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newUpcoming.youtubeTrailer} onChange={e => setNewUpcoming(p => ({...p, youtubeTrailer: e.target.value}))} />
-              <button onClick={() => { addItem('upcoming', newUpcoming); setNewUpcoming({title:'', youtubeTrailer:'', spotifyPreSave:''}); }} className="w-full bg-indigo-600 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest">Publicar Evento</button>
-            </div>
-
-            <div className="space-y-3 pt-8 border-t border-white/5">
-              {data.upcoming.map(u => (
-                <div key={u.id} className="bg-white/[0.03] p-6 rounded-2xl border border-white/5 flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-100">{u.title}</span>
-                  <div className="flex gap-2">
-                    <button onClick={() => deleteItem('upcoming', u.id)} className="p-2 text-red-500/30 hover:text-red-500 rounded-lg"><Trash2 size={16}/></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </AdminCard>
-
-        <AdminCard title="Buzón de Mensajes" icon={<Mail />}>
-          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-3 custom-scrollbar">
-            {data.messages.length === 0 ? <p className="text-[10px] opacity-20 italic text-center py-6 uppercase tracking-widest">Sin mensajes nuevos</p> : data.messages.map(m => (
-              <div key={m.id} className="bg-black/60 p-6 rounded-2xl border border-white/5 relative group">
-                <button onClick={() => deleteItem('messages', m.id)} className="absolute top-4 right-4 p-1.5 text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14}/></button>
-                <div className="mb-3">
-                  <span className="text-blue-400 font-black block text-[10px] uppercase tracking-widest">{m.name}</span>
-                  <span className="text-[8px] opacity-20 font-medium">{m.date}</span>
-                </div>
-                <p className="text-[11px] opacity-80 mb-3 font-light italic leading-relaxed">"{m.message}"</p>
-                <span className="text-[8px] opacity-40 font-bold uppercase tracking-widest">{m.email}</span>
+      <div className="space-y-20">
+        <AdminCard title="Gestión de Tracks" icon={<Disc />}>
+           <div className="space-y-8 max-h-[700px] overflow-y-auto pr-4 custom-scrollbar">
+              <div className="bg-blue-600/5 p-8 rounded-[3rem] border border-blue-500/10 space-y-4">
+                 <input placeholder="Título del Track" value={newS.title} onChange={e => setNewS({...newS, title: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
+                 <input placeholder="URL YouTube Oficial" value={newS.videoUrl} onChange={e => setNewS({...newS, videoUrl: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
+                 <button onClick={addS} className="w-full bg-blue-600 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest">Añadir a Catálogo</button>
               </div>
-            ))}
-          </div>
+              {data.songs.map(s => (
+                <div key={s.id} className="bg-white/[0.03] p-6 rounded-3xl border border-white/5 flex items-center justify-between">
+                   <span className="text-xs font-bold">{s.title}</span>
+                   <button onClick={() => del('songs', s.id)} className="p-3 text-red-500/40 hover:text-red-500 transition-all"><Trash2 size={18}/></button>
+                </div>
+              ))}
+           </div>
         </AdminCard>
 
-        <button onClick={onLogout} className="w-full py-6 bg-red-950/20 text-red-500 border border-red-900/30 rounded-3xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg">Cerrar Sesión de Administrador</button>
+        <AdminCard title="Buzón Maestro" icon={<Mail />}>
+           <div className="space-y-6 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+              {data.messages.length === 0 ? <p className="text-center opacity-20 py-10 uppercase font-black text-[10px] tracking-widest italic">Terminal Limpia</p> : data.messages.map(m => (
+                <div key={m.id} className="bg-black/60 p-8 rounded-3xl border border-white/5 relative group">
+                   <button onClick={() => del('messages', m.id)} className="absolute top-6 right-6 p-2 text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button>
+                   <div className="mb-4">
+                      <span className="text-blue-400 font-black text-[10px] uppercase tracking-widest">{m.name}</span>
+                      <span className="text-[8px] opacity-20 ml-4">{m.date}</span>
+                   </div>
+                   <p className="text-[12px] opacity-80 mb-4 font-light italic leading-relaxed">"{m.message}"</p>
+                   <span className="text-[8px] opacity-30 font-bold">{m.email}</span>
+                </div>
+              ))}
+           </div>
+        </AdminCard>
+
+        <div className="grid grid-cols-2 gap-6">
+           <button onClick={onPublish} className="bg-blue-600 py-8 rounded-[2.5rem] font-black uppercase text-[11px] tracking-[0.4em] shadow-4xl hover:bg-blue-500 transition-all">Publicar Todo</button>
+           <button onClick={onLogout} className="bg-red-950/20 text-red-500 border border-red-900/30 py-8 rounded-[2.5rem] font-black uppercase text-[11px] tracking-[0.4em] hover:bg-red-600 hover:text-white transition-all">Cerrar Sesión</button>
+        </div>
       </div>
     </div>
   );
 };
 
 const AdminCard: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
-  <div className="bg-white/[0.02] p-8 md:p-10 rounded-[3rem] border border-white/5 shadow-4xl space-y-8 relative overflow-hidden group">
-    <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
-      {React.cloneElement(icon as React.ReactElement, { size: 80 })}
+  <div className="bg-white/[0.02] p-10 md:p-14 rounded-[5rem] border border-white/5 shadow-4xl space-y-12 relative overflow-hidden group">
+    <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover:opacity-[0.08] transition-all transform scale-150 rotate-12">
+      {React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<any>, { size: 120 })}
     </div>
-    <div className="flex items-center gap-4 text-blue-500 uppercase font-black tracking-[0.3em] text-[11px] relative z-10">
-      <div className="p-3 bg-blue-500/10 rounded-xl">{icon}</div>
+    <div className="flex items-center gap-6 text-blue-500 uppercase font-black tracking-[0.4em] text-[13px] relative z-10">
+      <div className="p-4 bg-blue-500/10 rounded-2xl">{icon}</div>
       <span>{title}</span>
     </div>
     <div className="relative z-10">{children}</div>

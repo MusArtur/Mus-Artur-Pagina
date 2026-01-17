@@ -37,4 +37,5 @@ export interface AppData {
   socials: Social[];
   upcoming: UpcomingProject[];
   messages: Message[];
+  securityEmail?: string;
 }
