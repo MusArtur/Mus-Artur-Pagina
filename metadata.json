@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Copy of Mus Artur | Official Music",
+  "description": "Sitio oficial de Mus Artur. Música que inspira, amor que transforma. Redes sociales, lanzamientos y contacto.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
