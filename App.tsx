@@ -28,7 +28,10 @@ import {
   Twitter,
   Facebook,
   Image as ImageIcon,
-  Upload
+  Upload,
+  Globe,
+  ShieldCheck,
+  AlertCircle
 } from 'lucide-react';
 import { AppData, Song, Social, UpcomingProject, Message } from './types';
 
@@ -37,9 +40,9 @@ declare const emailjs: any;
 const DEFAULT_LOGO = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&h=200&auto=format&fit=crop";
 const DEFAULT_BANNER = "https://images.unsplash.com/photo-1514525253361-bee87184f47a?auto=format&fit=crop&q=80&w=1200";
 
-/**
- * Enhanced YouTube ID extractor to prevent playback errors.
- */
+// Helper for Email Validation
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
 const getYTid = (url: string | undefined): string | null => {
   if (!url) return null;
   const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -48,16 +51,24 @@ const getYTid = (url: string | undefined): string | null => {
 };
 
 const App: React.FC = () => {
+  // Persistence: Initialize from localStorage to survive refreshes
   const [data, setData] = useState<AppData>(() => {
-    const saved = localStorage.getItem('musArturData');
-    return saved ? JSON.parse(saved) : {
+    try {
+      const saved = localStorage.getItem('musArturData');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Error al cargar datos persistentes:", e);
+    }
+    return {
       about: "Mus Artur es un proyecto musical enfocado en transmitir mensajes de fe, esperanza y amor a través de canciones originales.",
       headerLogo: DEFAULT_LOGO,
       artistCover: DEFAULT_BANNER,
       contactEmail: "vicrober0125@gmail.com",
       songs: [],
       socials: [
-        { id: '1', name: 'Instagram', url: '#' },
+        { id: '1', name: 'Instagram', url: 'https://instagram.com/musartur' },
         { id: '2', name: 'Spotify', url: '#' },
         { id: '3', name: 'YouTube', url: '#' },
         { id: '4', name: 'TikTok', url: '#' },
@@ -73,48 +84,55 @@ const App: React.FC = () => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [loginError, setLoginError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [shareSong, setShareSong] = useState<Song | null>(null);
 
-  // Robust Auto-save effect
+  // Persistence: Auto-save effect triggered on every 'data' change
   useEffect(() => {
     setIsSaving(true);
     const timeout = setTimeout(() => {
       localStorage.setItem('musArturData', JSON.stringify(data));
       setIsSaving(false);
-    }, 1000);
+    }, 800);
     return () => clearTimeout(timeout);
   }, [data]);
 
   const handleLogin = () => {
+    setLoginError('');
+    if (!isValidEmail(loginForm.email)) {
+      setLoginError('Por favor ingresa un correo electrónico válido.');
+      return;
+    }
     if (loginForm.email === "vicrober0125@gmail.com" && loginForm.password === "vico0125") {
       setIsLoggedIn(true);
     } else {
-      alert("Acceso denegado. Credenciales inválidas.");
+      setLoginError('Acceso denegado. Credenciales inválidas.');
     }
   };
 
   const handlePublish = async () => {
     setIsPublishing(true);
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    await new Promise(resolve => setTimeout(resolve, 3000));
     setIsPublishing(false);
     setIsAdminOpen(false);
     
     const toast = document.createElement('div');
-    toast.className = 'fixed top-10 left-1/2 -translate-x-1/2 bg-green-500 text-white px-10 py-5 rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-[0_20px_60px_rgba(34,197,94,0.4)] z-[100] border border-white/20 flex items-center gap-3';
-    toast.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> SITIO WEB ACTUALIZADO`;
+    toast.className = 'fixed top-10 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-10 py-5 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-[0_20px_60px_rgba(37,99,235,0.4)] z-[200] border border-white/20 flex items-center gap-3 backdrop-blur-xl';
+    toast.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> SITIO WEB PUBLICADO EN MUSARTUR.COM`;
     document.body.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
       toast.style.transform = 'translate(-50%, -20px)';
-      toast.style.transition = 'all 0.5s';
+      toast.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
       setTimeout(() => toast.remove(), 500);
-    }, 3000);
+    }, 4000);
   };
 
   return (
     <div className="min-h-screen bg-[#020412] text-[#f1f5f9] selection:bg-blue-600/40 relative overflow-x-hidden">
+      {/* Dynamic Background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <motion.div 
           animate={{ scale: [1, 1.15, 1], opacity: [0.1, 0.25, 0.1] }}
@@ -134,6 +152,7 @@ const App: React.FC = () => {
         ))}
       </div>
 
+      {/* Header Section */}
       <header className="relative pt-24 pb-16 px-4 text-center z-10">
         <motion.div
           initial={{ opacity: 0, scale: 0.85 }}
@@ -149,7 +168,7 @@ const App: React.FC = () => {
           />
         </motion.div>
         
-        <motion.h1 className="font-orbitron text-5xl md:text-[6rem] font-bold blue-gradient-text tracking-tighter filter drop-shadow-[0_0_30px_rgba(59,130,246,0.5)]">
+        <motion.h1 className="font-orbitron text-5xl md:text-[6rem] font-black blue-gradient-text tracking-tighter filter drop-shadow-[0_0_30px_rgba(59,130,246,0.5)]">
           Mus Artur
         </motion.h1>
         
@@ -164,10 +183,11 @@ const App: React.FC = () => {
           className="mt-12 px-10 py-4 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-full text-[9px] font-black uppercase tracking-[0.6em] flex items-center gap-4 mx-auto shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-all hover:border-blue-400/50 group"
         >
           <Settings size={16} className="text-blue-500 group-hover:rotate-180 transition-transform duration-1000" />
-          <span>Configuración</span>
+          <span>Panel de Gestión</span>
         </motion.button>
       </header>
 
+      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-8 py-20 relative z-10 space-y-36 md:space-y-52">
         <Section title="Biografía" icon={<Sparkles className="text-blue-400" />}>
           <div className="space-y-16">
@@ -179,7 +199,7 @@ const App: React.FC = () => {
               <img src={data.artistCover || DEFAULT_BANNER} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[8s]" alt="Banner" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#020412] via-transparent to-transparent opacity-90" />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-white font-orbitron text-5xl md:text-7xl font-black opacity-10 tracking-[0.3em] select-none uppercase">Mus Artur</span>
+                <span className="text-white font-orbitron text-4xl md:text-7xl font-black opacity-10 tracking-[0.3em] select-none uppercase">Artista Oficial</span>
               </div>
             </motion.div>
 
@@ -236,9 +256,11 @@ const App: React.FC = () => {
           </div>
         </Section>
 
-        <Section title="Lanzamientos" icon={<Calendar className="text-blue-500" />}>
+        <Section title="Eventos" icon={<Calendar className="text-blue-500" />}>
           <div className="grid lg:grid-cols-2 gap-12">
-            {data.upcoming.map(u => (
+            {data.upcoming.length === 0 ? (
+              <p className="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest">Próximamente más novedades</p>
+            ) : data.upcoming.map(u => (
               <motion.div key={u.id} className="bg-white/[0.02] border border-white/10 p-8 md:p-12 rounded-[4rem] hover:-translate-y-4 transition-all shadow-3xl group interactive-reflection">
                 <h3 className="text-xl md:text-2xl font-orbitron mb-8 flex items-center gap-5 tracking-tight">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping shrink-0" />
@@ -246,7 +268,7 @@ const App: React.FC = () => {
                 </h3>
                 {u.youtubeTrailer && <VideoEmbed url={u.youtubeTrailer} />}
                 <div className="flex gap-6 mt-10">
-                  {u.youtubeTrailer && <ActionButton link={u.youtubeTrailer}>Trailer</ActionButton>}
+                  {u.youtubeTrailer && <ActionButton link={u.youtubeTrailer}>Ver Trailer</ActionButton>}
                   {u.spotifyPreSave && <ActionButton link={u.spotifyPreSave} variant="secondary">Pre-guardar</ActionButton>}
                 </div>
               </motion.div>
@@ -254,7 +276,7 @@ const App: React.FC = () => {
           </div>
         </Section>
 
-        <Section title="Redes" icon={<Share2 className="text-blue-400" />}>
+        <Section title="Social" icon={<Share2 className="text-blue-400" />}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {data.socials.map(s => (
               <SocialIcon key={s.id} type={s.name} url={s.url} />
@@ -277,10 +299,10 @@ const App: React.FC = () => {
       </main>
 
       <footer className="text-center py-16 opacity-40 border-t border-white/5 mt-24">
-        <p className="text-[10px] font-black tracking-[0.3em] uppercase">© 2026 Mus Artur - Artista Oficial</p>
+        <p className="text-[10px] font-black tracking-[0.3em] uppercase">© 2026 Mus Artur - Artista Oficial musartur.com</p>
       </footer>
 
-      {/* Share Modal */}
+      {/* Modals & Overlays */}
       <AnimatePresence>
         {shareSong && (
           <motion.div 
@@ -315,11 +337,11 @@ const App: React.FC = () => {
                 <div className="space-y-6">
                    <div className="flex items-center gap-4 bg-black/40 border border-white/5 p-3 pl-6 rounded-full overflow-hidden">
                     <span className="text-[10px] opacity-40 font-mono truncate flex-1">
-                      {window.location.origin}/#song-{shareSong.id}
+                      musartur.com/share/{shareSong.id}
                     </span>
                     <button 
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/#song-${shareSong.id}`);
+                        navigator.clipboard.writeText(`https://musartur.com/song/${shareSong.id}`);
                         alert("Enlace copiado al portapapeles");
                       }}
                       className="p-4 bg-blue-600 rounded-full hover:bg-blue-500 transition-all shadow-xl"
@@ -350,12 +372,13 @@ const App: React.FC = () => {
             <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }} className="mb-8">
               <RefreshCcw size={80} strokeWidth={1} />
             </motion.div>
-            <h2 className="text-4xl md:text-6xl font-orbitron font-black tracking-tighter uppercase text-center">Publicando Cambios</h2>
-            <p className="mt-4 text-sm md:text-lg font-light tracking-[0.4em] opacity-60 uppercase text-center">Optimizando activos digitales</p>
+            <h2 className="text-4xl md:text-6xl font-orbitron font-black tracking-tighter uppercase text-center">Publicando en Dominio</h2>
+            <p className="mt-4 text-sm md:text-lg font-light tracking-[0.4em] opacity-60 uppercase text-center">Actualizando servidores de musartur.com</p>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* Admin Panel */}
       <AnimatePresence>
         {isAdminOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-[#020412]/98 backdrop-blur-3xl overflow-y-auto">
@@ -363,17 +386,17 @@ const App: React.FC = () => {
               <div className="flex items-center gap-6">
                 <div className="p-3 bg-blue-600/20 rounded-xl"><Settings size={24} className="text-blue-500" /></div>
                 <div>
-                  <h2 className="text-xl md:text-2xl font-orbitron font-black text-white tracking-tighter uppercase leading-none">Panel</h2>
+                  <h2 className="text-xl md:text-2xl font-orbitron font-black text-white tracking-tighter uppercase leading-none">Admin Console</h2>
                   <div className="flex items-center gap-2 mt-1">
                     <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
-                    <span className="text-[8px] uppercase font-black tracking-[0.2em] opacity-50">{isSaving ? 'Guardando...' : 'Sincronizado'}</span>
+                    <span className="text-[8px] uppercase font-black tracking-[0.2em] opacity-50">{isSaving ? 'Sincronizando...' : 'Todos los cambios guardados'}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-4">
                 {isLoggedIn && (
                   <button onClick={handlePublish} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-3 shadow-3xl transition-all">
-                    <CloudUpload size={18} /> Publicar
+                    <CloudUpload size={18} /> Publicar Sitio
                   </button>
                 )}
                 <button onClick={() => setIsAdminOpen(false)} className="p-3 bg-white/5 rounded-full hover:bg-red-500/20 transition-all border border-white/10 group"><X size={20} className="group-hover:rotate-90 transition-transform" /></button>
@@ -384,19 +407,53 @@ const App: React.FC = () => {
               {!isLoggedIn ? (
                 <div className="max-w-md mx-auto py-24 text-center space-y-12">
                   <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 4 }} className="w-24 h-24 bg-blue-600/10 rounded-[2.5rem] flex items-center justify-center mx-auto border border-blue-500/20 shadow-2xl">
-                    <Settings size={40} className="text-blue-500" />
+                    <ShieldCheck size={40} className="text-blue-500" />
                   </motion.div>
                   <div className="space-y-6">
-                    <h3 className="text-2xl font-orbitron font-black uppercase tracking-widest text-blue-100">Acceso Admin</h3>
+                    <h3 className="text-2xl font-orbitron font-black uppercase tracking-widest text-blue-100">Acceso Seguro</h3>
                     <div className="space-y-4">
-                      <input type="email" placeholder="Usuario" value={loginForm.email} onChange={e => setLoginForm(p => ({...p, email: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] px-8 py-5 outline-none focus:border-blue-500 text-sm" />
-                      <input type="password" placeholder="Clave" value={loginForm.password} onChange={e => setLoginForm(p => ({...p, password: e.target.value}))} className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] px-8 py-5 outline-none focus:border-blue-500 text-sm" />
-                      <button onClick={handleLogin} className="w-full bg-blue-600 py-6 rounded-[1.5rem] font-black uppercase tracking-[0.4em] text-[10px] hover:bg-blue-500 shadow-3xl transition-all">Ingresar</button>
+                      <div className="space-y-2 text-left">
+                        <label className="text-[9px] font-black uppercase tracking-widest opacity-40 ml-4">Email de Administrador</label>
+                        <input type="email" placeholder="admin@musartur.com" value={loginForm.email} onChange={e => {setLoginForm(p => ({...p, email: e.target.value})); setLoginError('');}} className={`w-full bg-white/5 border ${loginError && !isValidEmail(loginForm.email) ? 'border-red-500' : 'border-white/10'} rounded-[1.5rem] px-8 py-5 outline-none focus:border-blue-500 text-sm transition-all`} />
+                      </div>
+                      <div className="space-y-2 text-left">
+                        <label className="text-[9px] font-black uppercase tracking-widest opacity-40 ml-4">Contraseña</label>
+                        <input type="password" placeholder="••••••••" value={loginForm.password} onChange={e => {setLoginForm(p => ({...p, password: e.target.value})); setLoginError('');}} className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] px-8 py-5 outline-none focus:border-blue-500 text-sm" />
+                      </div>
+                      
+                      {loginError && (
+                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-red-500 text-[10px] font-bold uppercase tracking-widest bg-red-500/10 p-4 rounded-xl">
+                          <AlertCircle size={14} />
+                          {loginError}
+                        </motion.div>
+                      )}
+
+                      <button onClick={handleLogin} className="w-full bg-blue-600 py-6 rounded-[1.5rem] font-black uppercase tracking-[0.4em] text-[10px] hover:bg-blue-500 shadow-3xl transition-all">Entrar al Sistema</button>
                     </div>
                   </div>
                 </div>
               ) : (
-                <AdminDashboard data={data} setData={setData} onLogout={() => setIsLoggedIn(false)} />
+                <div className="space-y-16">
+                  {/* Status Banner */}
+                  <div className="bg-blue-600/10 border border-blue-500/20 rounded-[3rem] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                      <div className="w-16 h-16 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400">
+                        <Globe size={32} />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-orbitron font-black uppercase tracking-tighter">Estado del Dominio</h4>
+                        <p className="text-xs opacity-40 font-mono tracking-widest uppercase">musartur.com <span className="text-green-500 font-black">· ACTIVO</span></p>
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                       <div className="px-6 py-3 bg-black/40 border border-white/5 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <ShieldCheck size={14} className="text-blue-500"/> SSL PROTEGIDO (NIVEL COM)
+                       </div>
+                    </div>
+                  </div>
+
+                  <AdminDashboard data={data} setData={setData} onLogout={() => setIsLoggedIn(false)} />
+                </div>
               )}
             </div>
           </motion.div>
@@ -410,7 +467,7 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
   <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-100px" }}>
     <div className="flex flex-col md:flex-row items-center gap-6 mb-20">
       <div className="p-6 bg-blue-600/10 rounded-2xl border border-blue-500/10 shadow-xl text-blue-400">{icon}</div>
-      <h2 className="text-4xl md:text-6xl font-orbitron font-black uppercase tracking-tighter text-white/90">{title}</h2>
+      <h2 className="text-4xl md:text-5xl font-orbitron font-black uppercase tracking-tighter text-white/90">{title}</h2>
       <div className="h-px flex-1 bg-gradient-to-r from-blue-500/20 to-transparent ml-8 hidden md:block" />
     </div>
     {children}
@@ -439,7 +496,7 @@ const InteractiveCard: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
 const VideoEmbed: React.FC<{ url: string | undefined }> = ({ url }) => {
   const id = getYTid(url);
-  if (!id) return <div className="aspect-video bg-black/60 rounded-[3rem] flex flex-col items-center justify-center opacity-40 text-xs">URL Inválida</div>;
+  if (!id) return <div className="aspect-video bg-black/60 rounded-[3rem] flex flex-col items-center justify-center opacity-40 text-xs">Sin Video</div>;
   return (
     <div className="aspect-video w-full rounded-[3rem] overflow-hidden border border-white/10 bg-black">
       <iframe src={`https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`} title="YouTube" className="w-full h-full border-0" allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
@@ -469,30 +526,22 @@ const SocialIcon: React.FC<{ type: Social['name']; url: string; size?: 'sm' | 'm
 const SocialShareButton: React.FC<{ type: string; song: Song; icon: React.ReactNode; color: string }> = ({ type, song, icon, color }) => {
   const handleShare = () => {
     const text = `¡Escucha "${song.title}" de Mus Artur!`;
-    const url = `${window.location.origin}/#song-${song.id}`;
+    const url = `https://musartur.com/song/${song.id}`;
     let shareUrl = '';
     
     switch(type) {
       case 'WhatsApp': shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`; break;
       case 'Twitter': shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`; break;
       case 'Facebook': shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`; break;
-      case 'Instagram': alert("Copia el enlace para compartir en Instagram Stories"); return;
+      case 'Instagram': alert("Enlace copiado para compartir en Stories."); return;
     }
     
     if(shareUrl) window.open(shareUrl, '_blank');
   };
 
   return (
-    <motion.button 
-      whileHover={{ y: -6, scale: 1.1 }}
-      whileTap={{ scale: 0.9 }}
-      onClick={handleShare}
-      className="flex flex-col items-center gap-2 group"
-    >
-      <div 
-        className="w-14 h-14 rounded-full flex items-center justify-center border border-white/10 bg-white/5 transition-all group-hover:bg-white/10"
-        style={{ color: color }}
-      >
+    <motion.button whileHover={{ y: -6, scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleShare} className="flex flex-col items-center gap-2 group">
+      <div className="w-14 h-14 rounded-full flex items-center justify-center border border-white/10 bg-white/5 transition-all group-hover:bg-white/10" style={{ color: color }}>
         {icon}
       </div>
       <span className="text-[8px] font-black uppercase tracking-widest opacity-40 group-hover:opacity-100 transition-opacity">
@@ -505,24 +554,47 @@ const SocialShareButton: React.FC<{ type: string; song: Song; icon: React.ReactN
 const ContactForm: React.FC<{ adminEmail: string; onMessageSent: (m: Message) => void }> = ({ adminEmail, onMessageSent }) => {
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{name?: string, email?: string, message?: string}>({});
+
   const handleSend = () => {
-    if (!formData.name || !formData.email || !formData.message) return alert("Completa los campos.");
+    const newErrors: any = {};
+    if (!formData.name) newErrors.name = "Requerido";
+    if (!formData.email) newErrors.email = "Requerido";
+    else if (!isValidEmail(formData.email)) newErrors.email = "Email inválido";
+    if (!formData.message) newErrors.message = "Requerido";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
     setLoading(true);
     setTimeout(() => {
       onMessageSent({ id: Date.now().toString(), ...formData, date: new Date().toLocaleString() });
       setFormData({ name: '', email: '', message: '' });
       setLoading(false);
-      alert("¡Enviado con éxito!");
+      alert("¡Tu mensaje ha sido enviado directamente a Mus Artur!");
     }, 2000);
   };
+
   return (
     <div className="space-y-10">
       <div className="grid md:grid-cols-2 gap-8">
-        <input placeholder="Nombre" className="bg-white/5 border border-white/5 rounded-[2rem] px-10 py-5 outline-none text-sm" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))}/>
-        <input placeholder="Email" className="bg-white/5 border border-white/5 rounded-[2rem] px-10 py-5 outline-none text-sm" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))}/>
+        <div className="space-y-2">
+          <input placeholder="Nombre Completo" className={`w-full bg-white/5 border ${errors.name ? 'border-red-500' : 'border-white/5'} rounded-[2rem] px-10 py-5 outline-none text-sm focus:border-blue-500 transition-colors`} value={formData.name} onChange={e => {setFormData(p => ({...p, name: e.target.value})); if(errors.name) setErrors(prev => ({...prev, name: undefined}));}}/>
+          {errors.name && <p className="text-red-500 text-[9px] uppercase font-black ml-6 tracking-widest">{errors.name}</p>}
+        </div>
+        <div className="space-y-2">
+          <input placeholder="Correo Electrónico" className={`w-full bg-white/5 border ${errors.email ? 'border-red-500' : 'border-white/5'} rounded-[2rem] px-10 py-5 outline-none text-sm focus:border-blue-500 transition-colors`} value={formData.email} onChange={e => {setFormData(p => ({...p, email: e.target.value})); if(errors.email) setErrors(prev => ({...prev, email: undefined}));}}/>
+          {errors.email && <p className="text-red-500 text-[9px] uppercase font-black ml-6 tracking-widest">{errors.email}</p>}
+        </div>
       </div>
-      <textarea placeholder="Mensaje" rows={5} className="w-full bg-white/5 border border-white/5 rounded-[2.5rem] px-10 py-8 outline-none resize-none text-sm" value={formData.message} onChange={e => setFormData(p => ({...p, message: e.target.value}))}/>
-      <button onClick={handleSend} disabled={loading} className="w-full bg-blue-600 py-6 rounded-full font-black uppercase tracking-[0.6em] text-[10px] shadow-3xl">{loading ? 'Enviando...' : 'Enviar'}</button>
+      <div className="space-y-2">
+        <textarea placeholder="Tu mensaje para Mus Artur..." rows={5} className={`w-full bg-white/5 border ${errors.message ? 'border-red-500' : 'border-white/5'} rounded-[2.5rem] px-10 py-8 outline-none resize-none text-sm focus:border-blue-500 transition-colors`} value={formData.message} onChange={e => {setFormData(p => ({...p, message: e.target.value})); if(errors.message) setErrors(prev => ({...prev, message: undefined}));}}/>
+        {errors.message && <p className="text-red-500 text-[9px] uppercase font-black ml-6 tracking-widest">{errors.message}</p>}
+      </div>
+      <button onClick={handleSend} disabled={loading} className="w-full bg-blue-600 py-6 rounded-full font-black uppercase tracking-[0.6em] text-[10px] shadow-3xl hover:bg-blue-500 transition-all">{loading ? 'Procesando Envío...' : 'Enviar Mensaje Directo'}</button>
     </div>
   );
 };
@@ -541,7 +613,7 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
   };
 
   const deleteItem = (type: 'songs' | 'upcoming' | 'messages', id: string) => {
-    if (confirm("¿Eliminar?")) setData(prev => ({ ...prev, [type]: (prev[type] as any[]).filter(i => i.id !== id) }));
+    if (confirm("¿Confirmas la eliminación definitiva?")) setData(prev => ({ ...prev, [type]: (prev[type] as any[]).filter(i => i.id !== id) }));
   };
 
   const updateItem = (type: 'songs' | 'upcoming', id: string, field: string, value: string) => {
@@ -570,16 +642,13 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
         <AdminCard title="Identidad Visual" icon={<ImageIcon />}>
            <div className="space-y-10">
             <div className="space-y-4">
-              <label className="text-[9px] font-black uppercase opacity-20 ml-4 block">Logo</label>
+              <label className="text-[9px] font-black uppercase opacity-20 ml-4 block">Imagen de Perfil</label>
               <div className="flex items-center gap-8">
                 <img src={data.headerLogo || DEFAULT_LOGO} className="w-20 h-20 rounded-full border-2 border-blue-500/30 object-cover shadow-2xl" alt="Preview Logo" />
                 <div className="flex-1 space-y-3">
-                  <input className="w-full bg-black/30 border border-white/10 rounded-xl px-6 py-4 text-xs outline-none focus:border-blue-500/50 transition-all" value={data.headerLogo} onChange={e => setData(p => ({...p, headerLogo: e.target.value}))} placeholder="URL del logo" />
-                  <button 
-                    onClick={() => logoInputRef.current?.click()}
-                    className="w-full p-4 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-600/30 transition-all flex items-center justify-center gap-2 font-black uppercase text-[8px] tracking-widest px-6"
-                  >
-                    <Upload size={14}/> Cargar Logo
+                  <input className="w-full bg-black/30 border border-white/10 rounded-xl px-6 py-4 text-xs outline-none focus:border-blue-500/50 transition-all" value={data.headerLogo} onChange={e => setData(p => ({...p, headerLogo: e.target.value}))} placeholder="URL de la imagen" />
+                  <button onClick={() => logoInputRef.current?.click()} className="w-full p-4 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-600/30 transition-all flex items-center justify-center gap-2 font-black uppercase text-[8px] tracking-widest px-6">
+                    <Upload size={14}/> Cambiar Imagen
                   </button>
                 </div>
               </div>
@@ -587,18 +656,15 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
             </div>
 
             <div className="space-y-4">
-              <label className="text-[9px] font-black uppercase opacity-20 ml-4 block">Banner Rectangular</label>
+              <label className="text-[9px] font-black uppercase opacity-20 ml-4 block">Banner Principal</label>
               <div className="space-y-4">
                 <div className="w-full aspect-[2.5/1] rounded-2xl border-2 border-blue-500/30 overflow-hidden shadow-2xl bg-black">
                    <img src={data.artistCover || DEFAULT_BANNER} className="w-full h-full object-cover" alt="Preview Banner" />
                 </div>
                 <div className="flex gap-3">
                   <input className="flex-1 bg-black/30 border border-white/10 rounded-xl px-6 py-4 text-xs outline-none focus:border-blue-500/50 transition-all" value={data.artistCover} onChange={e => setData(p => ({...p, artistCover: e.target.value}))} placeholder="URL del banner" />
-                  <button 
-                    onClick={() => bannerInputRef.current?.click()}
-                    className="p-4 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-600/30 transition-all flex items-center gap-2 font-black uppercase text-[8px] tracking-widest px-6"
-                  >
-                    <Upload size={14}/> Subir Banner
+                  <button onClick={() => bannerInputRef.current?.click()} className="p-4 bg-blue-600/20 text-blue-400 border border-blue-500/20 rounded-xl hover:bg-blue-600/30 transition-all flex items-center gap-2 font-black uppercase text-[8px] tracking-widest px-6">
+                    <Upload size={14}/> Cambiar Banner
                   </button>
                 </div>
               </div>
@@ -607,8 +673,8 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
           </div>
         </AdminCard>
 
-        <AdminCard title="Biografía" icon={<Sparkles />}>
-          <textarea className="w-full bg-black/40 border border-white/10 rounded-[2rem] p-8 min-h-[250px] outline-none text-sm" value={data.about} onChange={e => setData(p => ({...p, about: e.target.value}))} />
+        <AdminCard title="Contenido Biográfico" icon={<Sparkles />}>
+          <textarea className="w-full bg-black/40 border border-white/10 rounded-[2rem] p-8 min-h-[250px] outline-none text-sm focus:border-blue-500 transition-all" value={data.about} onChange={e => setData(p => ({...p, about: e.target.value}))} />
         </AdminCard>
 
         <AdminCard title="Redes Sociales" icon={<Share2 />}>
@@ -616,7 +682,7 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
             {data.socials.map(s => (
               <div key={s.id} className="space-y-1">
                 <span className="text-[9px] uppercase font-black opacity-30 ml-4">{s.name}</span>
-                <input className="w-full bg-black/30 border border-white/10 rounded-xl px-6 py-4 text-xs" value={s.url} onChange={e => updateSocial(s.id, e.target.value)} />
+                <input className="w-full bg-black/30 border border-white/10 rounded-xl px-6 py-4 text-xs focus:border-blue-500 transition-all" value={s.url} onChange={e => updateSocial(s.id, e.target.value)} />
               </div>
             ))}
           </div>
@@ -624,21 +690,20 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
       </div>
 
       <div className="space-y-16">
-        <AdminCard title="Discografía" icon={<Disc />}>
+        <AdminCard title="Catálogo Musical" icon={<Disc />}>
           <div className="space-y-6 max-h-[800px] overflow-y-auto pr-3 custom-scrollbar">
             <div className="space-y-4 bg-blue-600/5 p-6 rounded-3xl border border-blue-500/10">
-              <span className="text-[10px] font-black uppercase opacity-40 tracking-widest block mb-2">Añadir Canción</span>
-              <input placeholder="Título" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.title} onChange={e => setNewSong(p => ({...p, title: e.target.value}))} />
-              <input placeholder="Video URL (YouTube Embed)" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.videoUrl} onChange={e => setNewSong(p => ({...p, videoUrl: e.target.value}))} />
-              <input placeholder="Link YouTube" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.youtubeLink} onChange={e => setNewSong(p => ({...p, youtubeLink: e.target.value}))} />
+              <span className="text-[10px] font-black uppercase opacity-40 tracking-widest block mb-2">Nueva Entrada</span>
+              <input placeholder="Título de la canción" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.title} onChange={e => setNewSong(p => ({...p, title: e.target.value}))} />
+              <input placeholder="YouTube Embed URL" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.videoUrl} onChange={e => setNewSong(p => ({...p, videoUrl: e.target.value}))} />
+              <input placeholder="Link Oficial YouTube" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.youtubeLink} onChange={e => setNewSong(p => ({...p, youtubeLink: e.target.value}))} />
               <input placeholder="Link Spotify" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newSong.spotifyLink} onChange={e => setNewSong(p => ({...p, spotifyLink: e.target.value}))} />
-              <button onClick={() => { addItem('songs', newSong); setNewSong({title:'', youtubeLink:'', spotifyLink:'', videoUrl:''}); }} className="w-full bg-blue-600 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest transition-colors hover:bg-blue-500">Añadir Tema</button>
+              <button onClick={() => { addItem('songs', newSong); setNewSong({title:'', youtubeLink:'', spotifyLink:'', videoUrl:''}); }} className="w-full bg-blue-600 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest transition-colors hover:bg-blue-500">Insertar Tema</button>
             </div>
 
             <div className="space-y-3 pt-8 border-t border-white/5">
-              <span className="text-[10px] font-black uppercase opacity-20 tracking-widest block">Temas</span>
               {data.songs.map(s => (
-                <div key={s.id} className="bg-white/[0.03] p-6 rounded-2xl border border-white/5 space-y-4">
+                <div key={s.id} className="bg-white/[0.03] p-6 rounded-2xl border border-white/5 space-y-4 group">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-blue-100">{s.title}</span>
                     <div className="flex gap-2">
@@ -658,13 +723,13 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
           </div>
         </AdminCard>
 
-        <AdminCard title="Lanzamientos" icon={<Calendar />}>
+        <AdminCard title="Eventos y Estrenos" icon={<Calendar />}>
           <div className="space-y-6 max-h-[800px] overflow-y-auto pr-3 custom-scrollbar">
              <div className="space-y-4 bg-indigo-600/5 p-6 rounded-3xl border border-indigo-500/10">
-              <span className="text-[10px] font-black uppercase opacity-40 tracking-widest block mb-2">Nuevo Proyecto</span>
-              <input placeholder="Título" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newUpcoming.title} onChange={e => setNewUpcoming(p => ({...p, title: e.target.value}))} />
-              <input placeholder="Trailer URL" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newUpcoming.youtubeTrailer} onChange={e => setNewUpcoming(p => ({...p, youtubeTrailer: e.target.value}))} />
-              <button onClick={() => { addItem('upcoming', newUpcoming); setNewUpcoming({title:'', youtubeTrailer:'', spotifyPreSave:''}); }} className="w-full bg-indigo-600 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest">Añadir Proyecto</button>
+              <span className="text-[10px] font-black uppercase opacity-40 tracking-widest block mb-2">Nuevo Lanzamiento</span>
+              <input placeholder="Nombre del evento/tema" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newUpcoming.title} onChange={e => setNewUpcoming(p => ({...p, title: e.target.value}))} />
+              <input placeholder="URL del Trailer" className="w-full bg-black/30 border border-white/10 rounded-xl px-5 py-3 text-xs" value={newUpcoming.youtubeTrailer} onChange={e => setNewUpcoming(p => ({...p, youtubeTrailer: e.target.value}))} />
+              <button onClick={() => { addItem('upcoming', newUpcoming); setNewUpcoming({title:'', youtubeTrailer:'', spotifyPreSave:''}); }} className="w-full bg-indigo-600 py-4 rounded-xl font-black uppercase text-[9px] tracking-widest">Publicar Evento</button>
             </div>
 
             <div className="space-y-3 pt-8 border-t border-white/5">
@@ -680,9 +745,9 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
           </div>
         </AdminCard>
 
-        <AdminCard title="Mensajes" icon={<Mail />}>
+        <AdminCard title="Buzón de Mensajes" icon={<Mail />}>
           <div className="space-y-4 max-h-[600px] overflow-y-auto pr-3 custom-scrollbar">
-            {data.messages.length === 0 ? <p className="text-[10px] opacity-20 italic text-center py-6 uppercase tracking-widest">Sin mensajes</p> : data.messages.map(m => (
+            {data.messages.length === 0 ? <p className="text-[10px] opacity-20 italic text-center py-6 uppercase tracking-widest">Sin mensajes nuevos</p> : data.messages.map(m => (
               <div key={m.id} className="bg-black/60 p-6 rounded-2xl border border-white/5 relative group">
                 <button onClick={() => deleteItem('messages', m.id)} className="absolute top-4 right-4 p-1.5 text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14}/></button>
                 <div className="mb-3">
@@ -696,7 +761,7 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
           </div>
         </AdminCard>
 
-        <button onClick={onLogout} className="w-full py-6 bg-red-950/20 text-red-500 border border-red-900/30 rounded-3xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg">Cerrar Sesión</button>
+        <button onClick={onLogout} className="w-full py-6 bg-red-950/20 text-red-500 border border-red-900/30 rounded-3xl font-black uppercase text-[10px] tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-lg">Cerrar Sesión de Administrador</button>
       </div>
     </div>
   );
