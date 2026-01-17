@@ -18,6 +18,7 @@ export interface UpcomingProject {
   title: string;
   youtubeTrailer?: string;
   spotifyPreSave?: string;
+  releaseDate?: string;
 }
 
 export interface Message {

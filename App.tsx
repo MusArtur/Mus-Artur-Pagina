@@ -38,7 +38,9 @@ import {
   BellRing,
   Smartphone,
   ShieldAlert,
-  Clock
+  Clock,
+  Play,
+  Youtube
 } from 'lucide-react';
 import { AppData, Song, Social, UpcomingProject, Message } from './types';
 
@@ -49,9 +51,10 @@ const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
 const getYTid = (url: string | undefined): string | null => {
   if (!url) return null;
-  const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  // Regex mejorada para soportar shorts, mobile, embed y urls estándar
+  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
   const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
+  return (match && match[7].length === 11) ? match[7] : null;
 };
 
 const App: React.FC = () => {
@@ -285,6 +288,7 @@ const App: React.FC = () => {
                   <div className="flex gap-4">
                     <button onClick={() => setShareSong(song)} className="p-5 bg-white/5 rounded-full border border-white/5 text-blue-400 hover:bg-white/10 transition-all"><Share2 size={24} /></button>
                     {song.videoUrl && <SocialIcon type="YouTube" url={song.videoUrl} size="sm" isSongLink />}
+                    {song.spotifyLink && <SocialIcon type="Spotify" url={song.spotifyLink} size="sm" isSongLink />}
                   </div>
                 </div>
                 {song.videoUrl && <VideoEmbed url={song.videoUrl} />}
@@ -297,7 +301,14 @@ const App: React.FC = () => {
           <div className="grid lg:grid-cols-2 gap-14">
             {data.upcoming.map(u => (
               <div key={u.id} className="bg-white/[0.02] border border-white/10 p-12 rounded-[5rem] shadow-4xl interactive-reflection">
-                <h3 className="text-2xl font-orbitron mb-8 flex items-center gap-6"><span className="w-3 h-3 rounded-full bg-blue-500 animate-ping" />{u.title}</h3>
+                <div className="flex justify-between items-start mb-8 gap-6">
+                  <h3 className="text-2xl font-orbitron flex items-center gap-6"><span className="w-3 h-3 rounded-full bg-blue-500 animate-ping" />{u.title}</h3>
+                  {u.releaseDate && (
+                    <div className="px-4 py-2 bg-blue-600/10 border border-blue-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-400">
+                      {new Date(u.releaseDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </div>
+                  )}
+                </div>
                 {u.youtubeTrailer && <VideoEmbed url={u.youtubeTrailer} />}
               </div>
             ))}
@@ -508,12 +519,44 @@ const InteractiveCard: React.FC<{ children: React.ReactNode }> = ({ children }) 
   );
 };
 
-const VideoEmbed: React.FC<{ url: string }> = ({ url }) => {
+const VideoEmbed: React.FC<{ url: string; compact?: boolean }> = ({ url, compact }) => {
   const id = getYTid(url);
-  if (!id) return <div className="aspect-video bg-black/60 rounded-[4rem] flex items-center justify-center opacity-30 italic">Previsualización no disponible</div>;
+  const [loadError, setLoadError] = useState(false);
+
+  if (!id) {
+    return (
+      <div className={`aspect-video bg-black/60 ${compact ? 'rounded-2xl' : 'rounded-[4rem]'} flex flex-col items-center justify-center opacity-30 border border-white/5`}>
+        <AlertCircle size={24} className="mb-2 text-red-500" />
+        <span className="text-[10px] uppercase font-black tracking-widest">Enlace no válido</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="aspect-video w-full rounded-[4rem] overflow-hidden border border-white/10 shadow-4xl bg-black">
-      <iframe src={`https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&vq=hd1080`} className="w-full h-full border-0" allowFullScreen allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" />
+    <div className={`aspect-video w-full ${compact ? 'rounded-2xl' : 'rounded-[4rem]'} overflow-hidden border border-white/10 shadow-4xl bg-black relative group/video`}>
+      <div className="absolute inset-0 bg-blue-900/10 animate-pulse pointer-events-none" />
+      
+      <iframe 
+        title="YouTube video player"
+        src={`https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&enablejsapi=1`} 
+        className="w-full h-full border-0 relative z-10" 
+        allowFullScreen 
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+      />
+      
+      {/* Botón de escape directo en caso de error 153/150 persistente */}
+      <div className="absolute bottom-6 right-6 z-20 opacity-0 group-hover/video:opacity-100 transition-opacity">
+         <a 
+          href={`https://www.youtube.com/watch?v=${id}`} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="px-6 py-3 bg-red-600 text-white rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-3 shadow-2xl hover:bg-red-500 transition-all border border-white/20"
+         >
+           <Youtube size={16}/> Ver en YouTube
+         </a>
+      </div>
     </div>
   );
 };
@@ -545,8 +588,8 @@ const ContactForm: React.FC<{ adminEmail: string; onMessageSent: (m: Message) =>
 };
 
 const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.SetStateAction<AppData>>; onLogout: () => void; onPublish: () => void }> = ({ data, setData, onLogout, onPublish }) => {
-  const [newS, setNewS] = useState({ title: '', videoUrl: '' });
-  const [newU, setNewU] = useState({ title: '', youtubeTrailer: '' });
+  const [newS, setNewS] = useState({ title: '', videoUrl: '', spotifyLink: '' });
+  const [newU, setNewU] = useState({ title: '', youtubeTrailer: '', releaseDate: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   
@@ -554,8 +597,8 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
   const bannerRef = useRef<HTMLInputElement>(null);
   const update = (f: string, v: any) => setData(p => ({...p, [f]: v}));
   
-  const addS = () => { if(!newS.title) return; setData(p => ({...p, songs: [{id: Date.now().toString(), ...newS}, ...p.songs]})); setNewS({title:'', videoUrl:''}); };
-  const addU = () => { if(!newU.title) return; setData(p => ({...p, upcoming: [{id: Date.now().toString(), ...newU}, ...p.upcoming]})); setNewU({title:'', youtubeTrailer:''}); };
+  const addS = () => { if(!newS.title) return; setData(p => ({...p, songs: [{id: Date.now().toString(), ...newS}, ...p.songs]})); setNewS({title:'', videoUrl:'', spotifyLink: ''}); };
+  const addU = () => { if(!newU.title) return; setData(p => ({...p, upcoming: [{id: Date.now().toString(), ...newU}, ...p.upcoming]})); setNewU({title:'', youtubeTrailer:'', releaseDate: ''}); };
   
   const del = (t: 'songs' | 'upcoming' | 'messages', id: string) => {
     if(confirm("¿Estás seguro de que deseas eliminar este elemento?")) {
@@ -622,14 +665,16 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
               <div className="bg-blue-600/5 p-8 rounded-[3rem] border border-blue-500/10 space-y-4">
                  <input placeholder="Título del Track" value={newS.title} onChange={e => setNewS({...newS, title: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
                  <input placeholder="URL YouTube Oficial" value={newS.videoUrl} onChange={e => setNewS({...newS, videoUrl: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
+                 <input placeholder="URL Spotify Oficial" value={newS.spotifyLink} onChange={e => setNewS({...newS, spotifyLink: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
                  <button onClick={addS} className="w-full bg-blue-600 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 transition-all">Añadir Track</button>
               </div>
               {data.songs.map(s => (
                 <div key={s.id} className="bg-white/[0.03] p-6 rounded-3xl border border-white/5 flex items-center justify-between group">
                    {editingId === s.id ? (
                      <div className="flex-1 space-y-3 mr-4">
-                        <input className="w-full bg-black/40 border border-blue-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} />
-                        <input className="w-full bg-black/40 border border-blue-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.videoUrl} onChange={e => setEditForm({...editForm, videoUrl: e.target.value})} />
+                        <input className="w-full bg-black/40 border border-blue-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} placeholder="Título" />
+                        <input className="w-full bg-black/40 border border-blue-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.videoUrl} onChange={e => setEditForm({...editForm, videoUrl: e.target.value})} placeholder="URL YouTube" />
+                        <input className="w-full bg-black/40 border border-blue-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.spotifyLink || ''} onChange={e => setEditForm({...editForm, spotifyLink: e.target.value})} placeholder="URL Spotify" />
                         <div className="flex gap-2">
                            <button onClick={() => saveEdit('songs')} className="flex-1 bg-green-600/20 text-green-500 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest"><Save size={12} className="inline mr-1"/> Guardar</button>
                            <button onClick={() => setEditingId(null)} className="flex-1 bg-white/5 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest">Cancelar</button>
@@ -637,7 +682,13 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
                      </div>
                    ) : (
                      <>
-                       <span className="text-xs font-bold text-blue-100">{s.title}</span>
+                       <div className="flex flex-col">
+                          <span className="text-xs font-bold text-blue-100">{s.title}</span>
+                          <div className="flex gap-2 mt-2">
+                             {s.videoUrl && <div className="p-1 px-2 bg-red-600/20 rounded text-[7px] text-red-500 font-black tracking-widest">YOUTUBE</div>}
+                             {s.spotifyLink && <div className="p-1 px-2 bg-green-600/20 rounded text-[7px] text-green-500 font-black tracking-widest">SPOTIFY</div>}
+                          </div>
+                       </div>
                        <div className="flex gap-2">
                           <button onClick={() => startEdit(s)} className="p-3 text-blue-400/40 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl transition-all"><Edit3 size={18}/></button>
                           <button onClick={() => del('songs', s.id)} className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={18}/></button>
@@ -650,34 +701,73 @@ const AdminDashboard: React.FC<{ data: AppData; setData: React.Dispatch<React.Se
         </AdminCard>
 
         <AdminCard title="Próximos Lanzamientos" icon={<Calendar />}>
-           <div className="space-y-8 max-h-[700px] overflow-y-auto pr-4 custom-scrollbar">
-              <div className="bg-amber-600/5 p-8 rounded-[3rem] border border-amber-500/10 space-y-4">
+           <div className="space-y-12 max-h-[800px] overflow-y-auto pr-4 custom-scrollbar">
+              <div className="bg-amber-600/5 p-8 rounded-[3rem] border border-amber-500/10 space-y-4 shadow-xl">
                  <input placeholder="Título del Lanzamiento" value={newU.title} onChange={e => setNewU({...newU, title: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
                  <input placeholder="Trailer URL (YouTube)" value={newU.youtubeTrailer} onChange={e => setNewU({...newU, youtubeTrailer: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs"/>
+                 <div className="space-y-1">
+                    <label className="text-[8px] font-black uppercase tracking-widest opacity-40 ml-4">Fecha Lanzamiento</label>
+                    <input type="date" value={newU.releaseDate} onChange={e => setNewU({...newU, releaseDate: e.target.value})} className="w-full bg-black/30 border border-white/5 rounded-2xl px-6 py-4 text-xs text-amber-500 [color-scheme:dark]"/>
+                 </div>
                  <button onClick={addU} className="w-full bg-amber-600 py-5 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-500 transition-all text-black">Programar Lanzamiento</button>
               </div>
-              {data.upcoming.map(u => (
-                <div key={u.id} className="bg-white/[0.03] p-6 rounded-3xl border border-white/5 flex items-center justify-between">
-                   {editingId === u.id ? (
-                     <div className="flex-1 space-y-3 mr-4">
-                        <input className="w-full bg-black/40 border border-amber-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} />
-                        <input className="w-full bg-black/40 border border-amber-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.youtubeTrailer} onChange={e => setEditForm({...editForm, youtubeTrailer: e.target.value})} />
-                        <div className="flex gap-2">
-                           <button onClick={() => saveEdit('upcoming')} className="flex-1 bg-green-600/20 text-green-500 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest"><Save size={12} className="inline mr-1"/> Guardar</button>
-                           <button onClick={() => setEditingId(null)} className="flex-1 bg-white/5 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest">Cancelar</button>
+
+              <div className="grid gap-6">
+                {data.upcoming.map(u => (
+                  <motion.div 
+                    key={u.id} 
+                    whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.05)" }}
+                    className="bg-white/[0.03] p-8 rounded-[3rem] border border-white/10 flex flex-col gap-6 shadow-2xl transition-all relative group"
+                  >
+                    {editingId === u.id ? (
+                      <div className="space-y-4">
+                          <input className="w-full bg-black/40 border border-amber-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} placeholder="Título" />
+                          <input className="w-full bg-black/40 border border-amber-500/30 rounded-xl px-4 py-2 text-xs" value={editForm.youtubeTrailer} onChange={e => setEditForm({...editForm, youtubeTrailer: e.target.value})} placeholder="URL Trailer" />
+                          <input type="date" className="w-full bg-black/40 border border-amber-500/30 rounded-xl px-4 py-2 text-xs text-amber-500 [color-scheme:dark]" value={editForm.releaseDate || ''} onChange={e => setEditForm({...editForm, releaseDate: e.target.value})} />
+                          <div className="flex gap-2">
+                             <button onClick={() => saveEdit('upcoming')} className="flex-1 bg-green-600/20 text-green-500 py-3 rounded-xl text-[8px] font-black uppercase tracking-widest"><Save size={12} className="inline mr-1"/> Guardar Cambios</button>
+                             <button onClick={() => setEditingId(null)} className="flex-1 bg-white/5 py-3 rounded-xl text-[8px] font-black uppercase tracking-widest">Cancelar</button>
+                          </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-start gap-4">
+                           <div className="flex-1">
+                              <h4 className="text-lg font-orbitron font-bold text-amber-400 group-hover:text-amber-300 transition-colors">{u.title}</h4>
+                              {u.releaseDate && (
+                                <div className="flex items-center gap-2 mt-2 text-[9px] font-black uppercase tracking-widest text-amber-500/60">
+                                   <Calendar size={12}/>
+                                   <span>{new Date(u.releaseDate).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                                </div>
+                              )}
+                           </div>
+                           <div className="flex gap-2">
+                              <button onClick={() => startEdit(u)} className="p-3 bg-white/5 text-amber-400 hover:bg-amber-400/20 rounded-2xl transition-all"><Edit3 size={18}/></button>
+                              <button onClick={() => del('upcoming', u.id)} className="p-3 bg-white/5 text-red-500 hover:bg-red-500/20 rounded-2xl transition-all"><Trash2 size={18}/></button>
+                           </div>
                         </div>
-                     </div>
-                   ) : (
-                     <>
-                       <span className="text-xs font-bold text-amber-100">{u.title}</span>
-                       <div className="flex gap-2">
-                          <button onClick={() => startEdit(u)} className="p-3 text-amber-400/40 hover:text-amber-400 hover:bg-amber-400/10 rounded-xl transition-all"><Edit3 size={18}/></button>
-                          <button onClick={() => del('upcoming', u.id)} className="p-3 text-red-500/40 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"><Trash2 size={18}/></button>
-                       </div>
-                     </>
-                   )}
-                </div>
-              ))}
+
+                        {u.youtubeTrailer && (
+                          <div className="relative">
+                            <VideoEmbed url={u.youtubeTrailer} compact />
+                            <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                               <div className="p-4 bg-amber-500/20 backdrop-blur-md rounded-full border border-amber-500/30">
+                                  <Play size={24} className="text-amber-400" />
+                               </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {!u.youtubeTrailer && (
+                          <div className="aspect-video bg-black/40 border border-white/5 border-dashed rounded-2xl flex items-center justify-center">
+                             <span className="text-[9px] uppercase font-black tracking-widest opacity-20">Sin Trailer Programado</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
            </div>
         </AdminCard>
 
