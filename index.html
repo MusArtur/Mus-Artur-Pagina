@@ -7,16 +7,26 @@
     <title>Mus Artur | Música Oficial</title>
     
     <!-- SEO & Social Meta Tags -->
-    <meta name="description" content="Sitio oficial de Mus Artur. Música que inspira, amor que transforma. Escucha los últimos lanzamientos y conecta con el artista.">
-    <meta property="og:title" content="Mus Artur | Sitio Oficial">
-    <meta property="og:description" content="Explora la música, biografía y próximos eventos de Mus Artur.">
-    <meta property="og:image" content="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1200">
+    <meta name="description" content="Sitio oficial de Mus Artur. Música que inspira, mensajes de fe y esperanza. Escucha los últimos lanzamientos y conecta con el artista.">
+    <link rel="canonical" href="https://mus-artur-pagina.vercel.app">
+    
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mus-artur-pagina.vercel.app">
+    <meta property="og:title" content="Mus Artur | Sitio Oficial">
+    <meta property="og:description" content="Explora la música, biografía y próximos lanzamientos de Mus Artur. El sonido de la esperanza.">
+    <meta property="og:image" content="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1200">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://mus-artur-pagina.vercel.app">
+    <meta property="twitter:title" content="Mus Artur | Música Oficial">
+    <meta property="twitter:description" content="Explora la música, biografía y próximos lanzamientos de Mus Artur.">
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1200">
+
     <meta name="theme-color" content="#020412">
-    <meta name="twitter:card" content="summary_large_image">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/build/index.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
@@ -59,27 +69,6 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .interactive-reflection {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .interactive-reflection::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle at center, rgba(59, 130, 246, 0.1) 0%, transparent 60%);
-            opacity: 0;
-            transition: opacity 0.5s;
-            pointer-events: none;
-        }
-        .interactive-reflection:hover::after {
-            opacity: 1;
-        }
-        /* Loading styles */
         #loader {
             position: fixed;
             inset: 0;
@@ -111,11 +100,9 @@
 </head>
 <body class="loading">
     <div id="loader">
-        <div class="relative">
-            <div class="w-24 h-24 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
-            <div class="absolute inset-0 flex items-center justify-center">
-                <div class="w-12 h-12 bg-blue-600 rounded-full animate-pulse blur-md"></div>
-            </div>
+        <div class="relative text-center">
+            <div class="w-24 h-24 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+            <p class="mt-4 font-orbitron text-[10px] uppercase tracking-[0.3em] text-blue-500 animate-pulse">Iniciando Sistema...</p>
         </div>
     </div>
     <div id="root"></div>
@@ -124,7 +111,7 @@
             setTimeout(() => {
                 document.body.classList.remove('loading');
                 document.body.classList.add('loaded');
-            }, 1000);
+            }, 800);
         });
     </script>
 </body>
