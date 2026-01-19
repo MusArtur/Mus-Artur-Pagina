@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { 
   Music, 
   Calendar, 
@@ -240,6 +241,8 @@ const App: React.FC = () => {
       {showScrollTop && (
         <button onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="fixed bottom-10 right-10 p-5 bg-blue-600 rounded-full shadow-4xl z-50 text-white"><ChevronUp/></button>
       )}
+
+      <SpeedInsights />
     </div>
   );
 };
