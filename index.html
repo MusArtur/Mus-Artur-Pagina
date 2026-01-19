@@ -6,12 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mus Artur | Música Oficial</title>
     
-    <!-- SEO & Social Meta Tags (Nivel .com) -->
+    <!-- SEO & Social Meta Tags -->
     <meta name="description" content="Sitio oficial de Mus Artur. Música que inspira, amor que transforma. Escucha los últimos lanzamientos y conecta con el artista.">
     <meta property="og:title" content="Mus Artur | Sitio Oficial">
     <meta property="og:description" content="Explora la música, biografía y próximos eventos de Mus Artur.">
     <meta property="og:image" content="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=1200">
     <meta property="og:type" content="website">
+    <meta name="theme-color" content="#020412">
     <meta name="twitter:card" content="summary_large_image">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -53,14 +54,10 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
-        .floating {
-            animation: floating 8s ease-in-out infinite;
-        }
-        @keyframes floating {
-            0% { transform: translateY(0px) rotate(0deg); }
-            33% { transform: translateY(-15px) rotate(1deg); }
-            66% { transform: translateY(5px) rotate(-1deg); }
-            100% { transform: translateY(0px) rotate(0deg); }
+        .blue-gradient-text {
+            background: linear-gradient(135deg, #60a5fa, #2563eb, #1e40af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
         .interactive-reflection {
             position: relative;
@@ -82,13 +79,20 @@
         .interactive-reflection:hover::after {
             opacity: 1;
         }
-        .blue-gradient-text {
-            background: linear-gradient(135deg, #60a5fa, #2563eb, #1e40af);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        /* Loading styles */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background: #020412;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 1s ease-out, visibility 1s;
         }
-        .curved-edge {
-            mask-image: radial-gradient(circle at center, black 98%, transparent 100%);
+        .loaded #loader {
+            opacity: 0;
+            visibility: hidden;
         }
     </style>
 <script type="importmap">
@@ -105,7 +109,23 @@
 }
 </script>
 </head>
-<body>
+<body class="loading">
+    <div id="loader">
+        <div class="relative">
+            <div class="w-24 h-24 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="w-12 h-12 bg-blue-600 rounded-full animate-pulse blur-md"></div>
+            </div>
+        </div>
+    </div>
     <div id="root"></div>
+    <script>
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.body.classList.remove('loading');
+                document.body.classList.add('loaded');
+            }, 1000);
+        });
+    </script>
 </body>
 </html>

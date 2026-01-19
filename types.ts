@@ -29,6 +29,13 @@ export interface Message {
   date: string;
 }
 
+export interface Idea {
+  id: string;
+  author: string;
+  content: string;
+  date: string;
+}
+
 export interface AppData {
   about: string;
   headerLogo: string;
@@ -38,5 +45,6 @@ export interface AppData {
   socials: Social[];
   upcoming: UpcomingProject[];
   messages: Message[];
+  ideas: Idea[];
   securityEmail?: string;
 }
